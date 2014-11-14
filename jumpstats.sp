@@ -269,6 +269,8 @@ public Action:Command_ToggleStats(iClient, iArgs)
         g_baStats[iClient] = !g_baStats[iClient];
         if(!g_baStats[iClient])
             SetClientCookie(iClient, g_hToggleStatsCookie, "off");
+        else
+            SetClientCookie(iClient, g_hToggleStatsCookie, "on");
         
         PrintToChat(iClient, "  \x04[HNS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
     }
@@ -315,6 +317,7 @@ public OnClientDisconnect(iClient)
 public OnClientPutInServer(iClient)
 {
     SDKHook(iClient, SDKHook_StartTouch, SDKHook_StartTouch_Callback);
+    OnClientCookiesCached(iClient);
 }
 
 public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:iDamage, &iDamageType)
