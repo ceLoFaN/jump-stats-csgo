@@ -111,11 +111,11 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
 
 public OnClientCookiesCached(iClient)
 {
-    decl String:sCookieValue[8];
+    /*decl String:sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
     g_baStats[iClient] = (sCookieValue[0] != '\0' && StringToInt(sCookieValue));
-    sCookieValue[0] = '\0';
+    sCookieValue[0] = '\0';*/
 }
 
 public OnMapEnd() {
@@ -132,6 +132,9 @@ public Action:OnRoundStart(Handle:hEvent, const String:sName[], bool:dontBroadca
 {
     if(!g_bEnabled)
         return Plugin_Continue;
+
+    // add a ConVar for display delay (maybe after playerspawn as well)
+    CreateTimer(0.0, ShowStats);
 
     return Plugin_Continue;
 }
@@ -240,7 +243,7 @@ public Action:Command_ToggleStats(iClient, iArgs)
         SetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue);
         OnClientCookiesCached(iClient);
         
-        PrintToChat(iClient, "  \x04[HNS] You have turned %s the HNS Stats.", g_baStats[iClient] ? "on" : "off");
+        PrintToChat(iClient, "  \x04[HNS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
     }
     return Plugin_Handled;
 }
