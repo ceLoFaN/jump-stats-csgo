@@ -5,7 +5,7 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION                "0.1"
+#define PLUGIN_VERSION                "0.1.1"
 #define STATS_ENABLED                 "1"
 
 // Stats Defines
@@ -118,11 +118,13 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
 
 public OnClientCookiesCached(iClient)
 {
-    /*decl String:sCookieValue[8];
+    decl String:sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
-    g_baStats[iClient] = (sCookieValue[0] != '\0' && StringToInt(sCookieValue));
-    sCookieValue[0] = '\0';*/
+    if(StrEqual(sCookieValue, "off"))
+        g_baStats[iClient] = false;
+    else
+        g_baStats[iClient] = true;
 }
 
 public bool:InterruptJump(iClient) 
@@ -265,10 +267,8 @@ public Action:Command_ToggleStats(iClient, iArgs)
 {
     if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baStats[iClient] = !g_baStats[iClient];
-        new String:sCookieValue[8];
-        IntToString(g_baStats[iClient], sCookieValue, sizeof(sCookieValue));
-        SetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue);
-        OnClientCookiesCached(iClient);
+        if(!g_baStats[iClient])
+            SetClientCookie(iClient, g_hToggleStatsCookie, "off");
         
         PrintToChat(iClient, "  \x04[HNS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
     }
