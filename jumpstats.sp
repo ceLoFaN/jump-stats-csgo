@@ -468,10 +468,10 @@ stock Float:GetPlayerSpeed(iClient)
 {
     new Float:faVelocity[3];
     GetEntPropVector(iClient, Prop_Data, "m_vecVelocity", faVelocity);
+    
     new Float:fSpeed;
-    // fSpeed = GetVectorLength(faVelocity, false);
-    fSpeed = SquareRoot(faVelocity[0] * faVelocity[0] + faVelocity[1] * faVelocity[1]);    
-    // multiply speed by m_hlaggedspeedvalue or what it's called
+    fSpeed = SquareRoot(faVelocity[0] * faVelocity[0] + faVelocity[1] * faVelocity[1]);
+    fspeed *= GetEntPropFloat(iClient, Prop_Data, "m_flLaggedMovementValue");
 
     return fSpeed;
 }
