@@ -5,14 +5,18 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION                "0.1.1"
+#define PLUGIN_VERSION                "0.1.2"
 #define STATS_ENABLED                 "1"
 #define DISPLAY_DELAY_ROUNDSTART      "3"
 
 // Stats Defines
 #define MINIMUM_JUMP_DISTANCE       215.0
+#define MINIMUM_LADJ_DISTANCE       135.0
 #define MOUSE_LEFT                  (1 << 0)
 #define MOUSE_RIGHT                 (1 << 1)
+#define JUMP_VERTICAL               -2
+#define JUMP_TOO_SHORT              -1
+#define JUMP_NONE                   0
 #define JUMP_LJ                     1
 #define JUMP_BHJ                    2
 #define JUMP_MBHJ                   3
@@ -53,19 +57,22 @@ new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
+new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
+new bool:g_baLadderJumped[MAXPLAYERS + 1] = {false, ...};
 new Float:g_faJumpCoord[MAXPLAYERS + 1][3];
 new Float:g_faLandCoord[MAXPLAYERS + 1][3];
 new Float:g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
-new Float:g_faTemp[MAXPLAYERS + 1] = {0.0, ...};
+new Float:g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
 new g_iaBhops[MAXPLAYERS + 1] = {0, ...};
 new g_iaFrame[MAXPLAYERS + 1] = {0, ...};
 new g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
+new g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
 new g_iaButtons[MAXPLAYERS+1] = {0, ...};
 new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 
 //Stats consts
 new const String:g_saJumpTypes[][] = {
-    "nope",
+    "None",
     "LJ",
     "BHJ",
     "MBHJ",
@@ -145,6 +152,7 @@ public bool:InterruptJump(iClient)
 
     g_baJumped[iClient] = false;
     g_baCanBhop[iClient] = false;
+    g_baLadderJumped[iClient] = false;
 
     return true;
 }
@@ -208,16 +216,22 @@ public Action:StatsDisplay(Handle:hTimer)
             if(IsClientInGame(iClient) && g_baStats[iClient]) {
                 if(IsPlayerAlive(iClient)) {
                     decl String:sOutput[128];
+
                     Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
-                    if(g_faDistance[iClient] != -1.0) {    
-                        if(g_faDistance[iClient] > MINIMUM_JUMP_DISTANCE)   //with W and duck you get 223.4 or so
-                            g_faTemp[iClient] = g_faDistance[iClient];
+
+                    if(g_iaJumpType[iClient] > JUMP_VERTICAL) {
+                        if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
+                            g_faLastDistance[iClient] = g_faDistance[iClient];
+                            g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
+                        }
+
                         Format(sOutput, sizeof(sOutput),
-                        "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faTemp[iClient], g_saJumpTypes[g_iaJumpType[iClient]]);
+                        "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faLastDistance[iClient], g_saJumpTypes[g_iaLastJumpType[iClient]]);
                     }
                     else {
                         Format(sOutput, sizeof(sOutput), "%s  Last Jump: Vertical\n", sOutput);
                     }
+
                     Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i", sOutput, g_iaBhops[iClient]);
                     // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
                     //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
@@ -317,8 +331,9 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
                             CreateTimer(0.1, StopBhopRecord, iClient);
                             g_baCanBhop[iClient] = true;
                         }            
-                        CalculateJumpDistance(iClient);
+                        RecordJump(iClient);
                         g_baJumped[iClient] = false;
+                        g_baLadderJumped[iClient] = false;
                     }
                 }
                 else
@@ -337,7 +352,7 @@ public OnClientDisconnect(iClient)
     g_iaFrame[iClient] = 0;
     g_iaBhops[iClient] = 0;
     g_baCanJump[iClient] = true;
-    g_faTemp[iClient] = 0.0;
+    g_faLastDistance[iClient] = 0.0;
 }
 
 public OnClientPutInServer(iClient)
@@ -375,7 +390,7 @@ public Action:StopBhopRecord(Handle:hTimer, any:iClient)
         g_baCanBhop[iClient] = false;
 }
 
-public CalculateJumpDistance(iClient)
+public RecordJump(iClient)
 {
     GetClientAbsOrigin(iClient, g_faLandCoord[iClient]);
     new Float:fDelta;
@@ -389,17 +404,41 @@ public CalculateJumpDistance(iClient)
         g_faJumpCoord[iClient][2] = 0.0;
         g_faLandCoord[iClient][2] = 0.0;
         g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
-        if(g_faDistance[iClient] > MINIMUM_JUMP_DISTANCE) {
-            if(g_iaBhops[iClient] == 0)
-                g_iaJumpType[iClient] = JUMP_LJ;
+        if(g_faDistance[iClient] >= MINIMUM_JUMP_DISTANCE) {
+            if(g_iaBhops[iClient] == 0) {
+                if(g_baLadderJumped[iClient]) {
+                    g_iaJumpType[iClient] = JUMP_LADJ;
+                    g_baLadderJumped[iClient] = false;
+                }
+                else
+                    g_iaJumpType[iClient] = JUMP_LJ;
+            }
             else if(g_iaBhops[iClient] == 1)
                 g_iaJumpType[iClient] = JUMP_BHJ;
             else
                 g_iaJumpType[iClient] = JUMP_MBHJ;
         }
+        else
+            g_iaJumpType[iClient] = JUMP_TOO_SHORT;
+    }
+    else if(g_baLadderJumped[iClient]) {
+        if(fDelta < 8.0) {
+            g_faJumpCoord[iClient][2] = 0.0;
+            g_faLandCoord[iClient][2] = 0.0;
+            g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
+
+            if(g_faDistance[iClient] >= MINIMUM_LADJ_DISTANCE) {
+                g_iaJumpType[iClient] = JUMP_LADJ;
+                g_faLastDistance[iClient] = g_faDistance[iClient];
+            }
+            else
+                g_iaJumpType[iClient] = JUMP_TOO_SHORT;
+
+            g_baLadderJumped[iClient] = false; 
+        }
     }
     else
-        g_faDistance[iClient] = -1.0;
+        g_iaJumpType[iClient] = JUMP_VERTICAL;
 }
 
 public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon)
@@ -447,16 +486,23 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     }
     
     // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
-    if(g_baJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) 
+    if(g_baJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
         InterruptJump(iClient);
-    
+    }
+    if(GetEntityMoveType(iClient) == MOVETYPE_LADDER) {
+        if(!g_baOnLadder[iClient]) {
+            g_baOnLadder[iClient] = true;
+            g_iaBhops[iClient] = 0;
+        }
+    }
+
     // The player is on the ground
     if(GetEntityFlags(iClient) & FL_ONGROUND) {
         if(iButtons & IN_JUMP) {
             if(g_baAntiJump[iClient] && !g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings (because runcmd runs on every frame and it can                                                                                                       // detect multiple instances of the same jump)
                 // Player jumped on the same frame as landing on the ground
                 if(g_baJumped[iClient]) {   // player jumped during the same frame he landed
-                    CalculateJumpDistance(iClient);
+                    RecordJump(iClient);
                     GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                     g_iaBhops[iClient]++;            // counts the number of normal bhops
                     g_iaFrame[iClient] = 0;            // used to avoid multiple recordings of a jump
@@ -489,12 +535,20 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                         CreateTimer(0.1, StopBhopRecord, iClient);    // give the player a chance to bhop
                         g_baCanBhop[iClient] = true;
                     }      
-                    CalculateJumpDistance(iClient);
+                    RecordJump(iClient);
+                    g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
                 }
             }
-        }
+        }     
     }
-    
+    else if(GetEntityMoveType(iClient) == MOVETYPE_WALK)
+        if(g_baOnLadder[iClient]) { // the player just detached from the ladder
+            GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+            g_baOnLadder[iClient] = false;
+            g_baLadderJumped[iClient] = true; // this might not be 100% true but it works
+            g_baJumped[iClient] = true;
+        }
+
     if(!(iButtons & IN_JUMP))
         g_baAntiJump[iClient] = true;    // -jump has been recorded
     else
