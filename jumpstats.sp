@@ -312,7 +312,7 @@ public Action:Command_ToggleStats(iClient, iArgs)
         else
             SetClientCookie(iClient, g_hToggleStatsCookie, "on");
         
-        PrintToChat(iClient, "  \x04[HNS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
+        PrintToChat(iClient, "  \x04[JS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
     }
     return Plugin_Handled;
 }
