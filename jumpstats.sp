@@ -7,6 +7,7 @@
 // ConVar Defines
 #define PLUGIN_VERSION                "0.1.1"
 #define STATS_ENABLED                 "1"
+#define DISPLAY_DELAY_ROUNDSTART      "3"
 
 // Stats Defines
 #define MINIMUM_JUMP_DISTANCE       215.0
@@ -33,15 +34,19 @@ public Plugin:myinfo =
     url = "steamcommunity.com/id/celofan"
 };
 
+//convars
 new Handle:g_hEnabled = INVALID_HANDLE;
+new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 
 new bool:g_bEnabled;
+new Float:g_fDisplayDelayRoundstart;
 
 //cookies
 new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
 
 //stats
-new Handle:g_hStatsTimer = INVALID_HANDLE;
+new Handle:g_hDisplayTimer = INVALID_HANDLE;
+new Handle:g_hInitialDisplayTimer = INVALID_HANDLE;
 new bool:g_baStats[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baJumped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
@@ -79,9 +84,12 @@ public OnPluginStart()
     //ConVars here
     CreateConVar("hidenseek_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
     g_hEnabled = CreateConVar("sm_stats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
+    g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
+
     // Remember to add HOOKS to OnCvarChange and modify OnConfigsExecuted
 
     HookConVarChange(g_hEnabled, OnCvarChange);
+    HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
     
     //Hooked'em
     HookEvent("round_start", OnRoundStart, EventHookMode_PostNoCopy);
@@ -105,6 +113,7 @@ public OnPluginStart()
 public OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
+    g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
 }
 
 public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewValue[])
@@ -112,8 +121,10 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     decl String:sConVarName[64];
     GetConVarName(hConVar, sConVarName, sizeof(sConVarName));
 
-    if(StrEqual("hns_enabled", sConVarName))
-        g_bEnabled = GetConVarBool(hConVar);
+    if(StrEqual("sm_stats", sConVarName))
+        g_bEnabled = GetConVarBool(hConVar); else
+    if(StrEqual("sm_display_delay_roundstart", sConVarName))
+        g_fDisplayDelayRoundstart = GetConVarFloat(hConVar);
 }
 
 public OnClientCookiesCached(iClient)
@@ -148,9 +159,14 @@ public Native_InterruptJump(Handle:hPlugin, iNumParams)
 }
 
 public OnMapEnd() {
-    if(g_hStatsTimer != INVALID_HANDLE) {
-        KillTimer(g_hStatsTimer);
-        g_hStatsTimer = INVALID_HANDLE;
+    if(g_hDisplayTimer != INVALID_HANDLE) {
+        KillTimer(g_hDisplayTimer);
+        g_hDisplayTimer = INVALID_HANDLE;
+    }
+
+    if(g_hInitialDisplayTimer != INVALID_HANDLE) {
+        KillTimer(g_hInitialDisplayTimer);
+        g_hDisplayTimer = INVALID_HANDLE;
     }
 
     if(!g_bEnabled)
@@ -162,20 +178,30 @@ public Action:OnRoundStart(Handle:hEvent, const String:sName[], bool:dontBroadca
     if(!g_bEnabled)
         return Plugin_Continue;
 
-    // add a ConVar for display delay (maybe after playerspawn as well)
-    CreateTimer(0.0, ShowStats);
+    if(g_hDisplayTimer != INVALID_HANDLE) {
+        KillTimer(g_hDisplayTimer);
+        g_hDisplayTimer = INVALID_HANDLE;
+    }
+    if(g_hInitialDisplayTimer != INVALID_HANDLE)
+        KillTimer(g_hInitialDisplayTimer);
+    g_hInitialDisplayTimer = CreateTimer(g_fDisplayDelayRoundstart, ShowDisplay);
 
     return Plugin_Continue;
 }
 
-public Action:ShowStats(Handle:hTimer)
+public Action:ShowDisplay(Handle:hTimer)
 {
-    if(g_hStatsTimer != INVALID_HANDLE)
-        KillTimer(g_hStatsTimer);
-    g_hStatsTimer = CreateTimer(REFRESH_RATE, ShowStatsMessage, _, TIMER_REPEAT);
+    g_hInitialDisplayTimer = INVALID_HANDLE;
+    if(g_hDisplayTimer != INVALID_HANDLE)
+        KillTimer(g_hDisplayTimer);
+    for(new iClient = 1; iClient <= MaxClients; iClient++) {
+        g_iaButtons[iClient] = 0;
+        g_iaMouseDisplay[iClient] = 0;
+    }
+    g_hDisplayTimer = CreateTimer(REFRESH_RATE, StatsDisplay, _, TIMER_REPEAT);
 }
 
-public Action:ShowStatsMessage(Handle:hTimer)
+public Action:StatsDisplay(Handle:hTimer)
 {
     if(g_bEnabled) {
         for(new iClient = 1; iClient <= MaxClients; iClient++) {
