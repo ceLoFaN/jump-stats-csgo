@@ -4,8 +4,9 @@
 #define _jumpstats_natives_
 
 /**
- * Adds two numbers together.
+ * @brief Interrupts a player's current jump stats recording.
  *
- * @param client    The client.
+ * @param client    The target player.
+ * @return          True if the jump was successfully interrupted, false otherwise.
  */
 native JumpStats_InterruptJump(client);
