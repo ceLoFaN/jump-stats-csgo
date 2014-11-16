@@ -14,6 +14,7 @@
 #define MINIMUM_LADJ_DISTANCE       135.0
 #define MOUSE_LEFT                  (1 << 0)
 #define MOUSE_RIGHT                 (1 << 1)
+#define JUMP_INVALID                -3
 #define JUMP_VERTICAL               -2
 #define JUMP_TOO_SHORT              -1
 #define JUMP_NONE                   0
@@ -153,6 +154,7 @@ public bool:InterruptJump(iClient)
     g_baJumped[iClient] = false;
     g_baCanBhop[iClient] = false;
     g_baLadderJumped[iClient] = false;
+    g_iaJumpType[iClient] = JUMP_INVALID;
 
     return true;
 }
@@ -219,7 +221,7 @@ public Action:StatsDisplay(Handle:hTimer)
 
                     Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
 
-                    if(g_iaJumpType[iClient] > JUMP_VERTICAL) {
+                    if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
                         if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
                             g_faLastDistance[iClient] = g_faDistance[iClient];
                             g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
@@ -400,7 +402,7 @@ public RecordJump(iClient)
     else
         fDelta = FloatAbs(g_faLandCoord[iClient][2]) + FloatAbs(g_faJumpCoord[iClient][2]);
 
-    if(fDelta < 2.0) {
+    if(fDelta < 2.0) {  // allow a height difference of 2 units
         g_faJumpCoord[iClient][2] = 0.0;
         g_faLandCoord[iClient][2] = 0.0;
         g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
@@ -421,8 +423,8 @@ public RecordJump(iClient)
         else
             g_iaJumpType[iClient] = JUMP_TOO_SHORT;
     }
-    else if(g_baLadderJumped[iClient]) {
-        if(fDelta < 8.0) {
+    else if(fDelta < 8.0) { // ladder jumps usually have a height difference of 1 to 7 units, so allow 8
+        if(g_baLadderJumped[iClient]) {
             g_faJumpCoord[iClient][2] = 0.0;
             g_faLandCoord[iClient][2] = 0.0;
             g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
@@ -436,9 +438,11 @@ public RecordJump(iClient)
 
             g_baLadderJumped[iClient] = false; 
         }
+        else
+            g_iaJumpType[iClient] = JUMP_VERTICAL;
     }
-    else
-        g_iaJumpType[iClient] = JUMP_VERTICAL;
+    else // the player probably didn't intend a longjump so the display will show the last valid jump
+        g_iaJumpType[iClient] = JUMP_INVALID;
 }
 
 public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon)
