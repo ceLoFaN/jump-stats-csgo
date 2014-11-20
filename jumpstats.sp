@@ -5,9 +5,10 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2"
+#define PLUGIN_VERSION              "0.2.1"
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
+#define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 
 // Jump Types
 #define JUMP_INVALID                -3
@@ -78,6 +79,7 @@ public Plugin:myinfo =
 /*\----ConVars----------------------------------------\*/
 new Handle:g_hEnabled = INVALID_HANDLE;
 new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
+new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
 
 new Handle:g_hLJImpressive = INVALID_HANDLE;
 new Handle:g_hLJExcellent = INVALID_HANDLE;
@@ -105,6 +107,7 @@ new Handle:g_hLadJGodlike = INVALID_HANDLE;
 
 new bool:g_bEnabled;
 new Float:g_fDisplayDelayRoundstart;
+new bool:g_bBunnyHopCancelsAnnouncer;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
 /*-----------------------------------------------------*/
@@ -123,6 +126,7 @@ new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baLadderJumped[MAXPLAYERS + 1] = {false, ...};
+new bool:g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
 new Float:g_faJumpCoord[MAXPLAYERS + 1][3];
 new Float:g_faLandCoord[MAXPLAYERS + 1][3];
 new Float:g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
@@ -170,6 +174,7 @@ public OnPluginStart()
     CreateConVar("hidenseek_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
     g_hEnabled = CreateConVar("sm_jumpstats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
+    g_hBunnyHopCancelsAnnouncer = CreateConVar("sm_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
 
     g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive LongJump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent LongJump", _, true, 0.0);
@@ -198,6 +203,7 @@ public OnPluginStart()
     //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
     HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
+    HookConVarChange(g_hBunnyHopCancelsAnnouncer, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -246,6 +252,7 @@ public OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
+    g_bBunnyHopCancelsAnnouncer = GetConVarBool(g_hBunnyHopCancelsAnnouncer);
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -281,6 +288,8 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("sm_display_delay_roundstart", sConVarName))
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
+    if(StrEqual("sm_bunnyhop_cancels_announcer", sConVarName))
+        g_bBunnyHopCancelsAnnouncer = GetConVarBool(hConVar); else
 
     if(StrEqual("sm_jumpstats_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
@@ -490,6 +499,7 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
                     if(!g_baJustHopped[iClient]) {
                         if(!g_baCanBhop[iClient]) {
                             CreateTimer(0.1, StopBhopRecord, iClient);
+                            g_baAnnounceLastJump[iClient] = true;
                             g_baCanBhop[iClient] = true;
                         }            
                         RecordJump(iClient);
@@ -545,10 +555,42 @@ public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroad
     return Plugin_Continue;
 }
 
+public AnnounceLastJump(iClient)
+{
+    if(g_iaJumpType[iClient] > JUMP_NONE) {
+        new iType = g_iaJumpType[iClient];
+
+        new iQuality;
+        for(iQuality = -1; iQuality < sizeof(g_saJumpQualities) - 1; iQuality++) {
+            if(g_faDistance[iClient] < g_faQualityDistances[iType][iQuality + 1])
+                break;
+        }
+
+        if(iQuality > -1) {
+            decl String:sNickname[MAX_NAME_LENGTH];
+            GetClientName(iClient, sNickname, sizeof(sNickname));
+
+            decl String:sArticle[3] = "a";
+            decl String:sFirstLetter[2];
+            Format(sFirstLetter, sizeof(sFirstLetter), "%c", g_saPrettyJumpTypes[iType][0]);
+            if(StrContains("aeiouh", sFirstLetter, false))
+                Format(sArticle, sizeof(sArticle), "an");
+
+            PrintToChatAll("[JS] %s did %s %s %.3f units %s.", 
+                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+        }
+    }
+}
+
 public Action:StopBhopRecord(Handle:hTimer, any:iClient)
 {
-    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient))
+    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baCanBhop[iClient] = false;
+        if(g_bBunnyHopCancelsAnnouncer) {
+            if(g_baAnnounceLastJump[iClient])
+                AnnounceLastJump(iClient);
+        }
+    }
 }
 
 public RecordJump(iClient)
@@ -603,30 +645,10 @@ public RecordJump(iClient)
     else // the player probably didn't intend a longjump so the display will show the last valid jump
         g_iaJumpType[iClient] = JUMP_INVALID;
 
-    // announce the jump
-    if(g_iaJumpType[iClient] > JUMP_NONE) {
-        new iType = g_iaJumpType[iClient];
-
-        new iQuality;
-        for(iQuality = -1; iQuality < sizeof(g_saJumpQualities) - 1; iQuality++) {
-            if(g_faDistance[iClient] < g_faQualityDistances[iType][iQuality + 1])
-                break;
-        }
-
-        if(iQuality > -1) {
-            decl String:sNickname[MAX_NAME_LENGTH];
-            GetClientName(iClient, sNickname, sizeof(sNickname));
-
-            decl String:sArticle[3] = "a";
-            decl String:sFirstLetter[2];
-            Format(sFirstLetter, sizeof(sFirstLetter), "%c", g_saPrettyJumpTypes[iType][0]);
-            if(StrContains("aeiouh", sFirstLetter, false))
-                Format(sArticle, sizeof(sArticle), "an");
-
-            PrintToChatAll("[JS] %s did %s %s %.3f units %s.", 
-                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
-        }
-    }
+    if(!g_bBunnyHopCancelsAnnouncer)
+        AnnounceLastJump(iClient);
+    else
+        g_baAnnounceLastJump[iClient] = true;
 }
 
 public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon)
@@ -688,7 +710,6 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     if(GetEntityFlags(iClient) & FL_ONGROUND) {
         if(iButtons & IN_JUMP) {
             if(g_baAntiJump[iClient] && !g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings (because runcmd runs on every frame and it can                                                                                                       // detect multiple instances of the same jump)
-                // Player jumped on the same frame as landing on the ground
                 if(g_baJumped[iClient]) {   // player jumped during the same frame he landed
                     RecordJump(iClient);
                     GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
@@ -697,13 +718,17 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                     g_baJustHopped[iClient] = true;    // the player bhopped, used to avoid multiple recordings
                     g_baJumped[iClient] = true;        // the player jumped (landing will set this to false)
                     g_baCanJump[iClient] = false;    // this variable looks like the opposite of g_baJumped but it is needed to avoid multiple recordings of both perf and norm bhops
+                    g_baAnnounceLastJump[iClient] = false;
                 }
                 else if(g_baCanJump[iClient]) {
                     GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
-                    if(g_baCanBhop[iClient])        // the bhop time hasn't expired yet
+                    if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
                         g_iaBhops[iClient]++;
+                        g_baAnnounceLastJump[iClient] = false;
+                    }
                     else {
                         g_iaBhops[iClient] = 0;
+                        g_baAnnounceLastJump[iClient] = true;
                     }
                     g_iaFrame[iClient] = 0;
                     g_baJustHopped[iClient] = true;
@@ -711,20 +736,22 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                     g_baCanJump[iClient] = false;
                 }
             }
-            else
+            else {
                 g_baJumped[iClient] = false;
+            }
         }
         else {    //the player didn't +jump this time (so we can assume a -jump was made before or even now)
             g_baCanJump[iClient] = true;
             if(g_baJumped[iClient]) {
                 g_baJumped[iClient] = false;
                 if(!g_baJustHopped[iClient]) {        // player jumped before
-                    if(!g_baCanBhop[iClient]) {  // this should be moved to recently landed, not stopped jumping
-                        CreateTimer(0.1, StopBhopRecord, iClient);    // give the player a chance to bhop
-                        g_baCanBhop[iClient] = true;
-                    }      
                     RecordJump(iClient);
                     g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
+                    if(!g_baCanBhop[iClient]) {  // !!! this should be moved to recently landed, not stopped jumping
+                        CreateTimer(0.1, StopBhopRecord, iClient);    // give the player a chance to bhop
+                        g_baCanBhop[iClient] = true;
+                        g_baAnnounceLastJump = true;
+                    }      
                 }
             }
         }     
