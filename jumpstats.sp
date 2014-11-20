@@ -5,23 +5,57 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION                "0.1.2"
-#define STATS_ENABLED                 "1"
-#define DISPLAY_DELAY_ROUNDSTART      "3"
+#define PLUGIN_VERSION              "0.2"
+#define STATS_ENABLED               "1"
+#define DISPLAY_DELAY_ROUNDSTART    "3"
 
-// Stats Defines
-#define MINIMUM_JUMP_DISTANCE       215.0
-#define MINIMUM_LADJ_DISTANCE       135.0
-#define MOUSE_LEFT                  (1 << 0)
-#define MOUSE_RIGHT                 (1 << 1)
+// Jump Types
 #define JUMP_INVALID                -3
 #define JUMP_VERTICAL               -2
 #define JUMP_TOO_SHORT              -1
 #define JUMP_NONE                   0
+
+#define VALID_JUMP_TYPES            4
 #define JUMP_LJ                     1
 #define JUMP_BHJ                    2
 #define JUMP_MBHJ                   3
 #define JUMP_LADJ                   4
+
+// Jump Distances
+#define IMPRESSIVE                  0
+#define EXCELLENT                   1
+#define OUTSTANDING                 2
+#define UNREAL                      3
+#define GODLIKE                     4
+
+#define MINIMUM_LJ_DISTANCE         215.0
+#define LJ_IMPRESSIVE               "230.0"
+#define LJ_EXCELLENT                "235.0"
+#define LJ_OUTSTANDING              "240.0"
+#define LJ_UNREAL                   "245.0"
+#define LJ_GODLIKE                  "250.0"
+
+#define MINIMUM_BHJ_DISTANCE        215.0
+#define BHJ_IMPRESSIVE              "248.0"
+#define BHJ_EXCELLENT               "256.0"
+#define BHJ_OUTSTANDING             "262.0"
+#define BHJ_UNREAL                  "270.0"
+#define BHJ_GODLIKE                 "278.0"
+
+#define MINIMUM_MBHJ_DISTANCE       215.0
+#define MBHJ_IMPRESSIVE             "248.0"
+#define MBHJ_EXCELLENT              "256.0"
+#define MBHJ_OUTSTANDING            "262.0"
+#define MBHJ_UNREAL                 "270.0"
+#define MBHJ_GODLIKE                "278.0"
+
+#define MINIMUM_LADJ_DISTANCE       135.0
+#define LADJ_IMPRESSIVE             "152.0"
+#define LADJ_EXCELLENT              "158.0"
+#define LADJ_OUTSTANDING            "164.0"
+#define LADJ_UNREAL                 "170.0"
+#define LADJ_GODLIKE                "176.0"
+
 
 //Spec Defines
 #define REFRESH_RATE                0.1
@@ -29,6 +63,8 @@
 #define SPECMODE_FIRSTPERSON        4
 #define SPECMODE_3RDPERSON          5
 #define SPECMODE_FREELOOK           6
+#define MOUSE_LEFT                  (1 << 0)
+#define MOUSE_RIGHT                 (1 << 1)
 
 public Plugin:myinfo =
 {
@@ -39,12 +75,39 @@ public Plugin:myinfo =
     url = "steamcommunity.com/id/celofan"
 };
 
-//convars
+/*\----ConVars----------------------------------------\*/
 new Handle:g_hEnabled = INVALID_HANDLE;
 new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 
+new Handle:g_hLJImpressive = INVALID_HANDLE;
+new Handle:g_hLJExcellent = INVALID_HANDLE;
+new Handle:g_hLJOutstanding = INVALID_HANDLE;
+new Handle:g_hLJUnreal = INVALID_HANDLE;
+new Handle:g_hLJGodlike = INVALID_HANDLE;
+
+new Handle:g_hBHJImpressive = INVALID_HANDLE;
+new Handle:g_hBHJExcellent = INVALID_HANDLE;
+new Handle:g_hBHJOutstanding = INVALID_HANDLE;
+new Handle:g_hBHJUnreal = INVALID_HANDLE;
+new Handle:g_hBHJGodlike = INVALID_HANDLE;
+
+new Handle:g_hMBHJImpressive = INVALID_HANDLE;
+new Handle:g_hMBHJExcellent = INVALID_HANDLE;
+new Handle:g_hMBHJOutstanding = INVALID_HANDLE;
+new Handle:g_hMBHJUnreal = INVALID_HANDLE;
+new Handle:g_hMBHJGodlike = INVALID_HANDLE;
+
+new Handle:g_hLadJImpressive = INVALID_HANDLE;
+new Handle:g_hLadJExcellent = INVALID_HANDLE;
+new Handle:g_hLadJOutstanding = INVALID_HANDLE;
+new Handle:g_hLadJUnreal = INVALID_HANDLE;
+new Handle:g_hLadJGodlike = INVALID_HANDLE;
+
 new bool:g_bEnabled;
 new Float:g_fDisplayDelayRoundstart;
+
+new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
+/*-----------------------------------------------------*/
 
 //cookies
 new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
@@ -71,13 +134,27 @@ new g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
 new g_iaButtons[MAXPLAYERS+1] = {0, ...};
 new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 
-//Stats consts
+//Jump consts
 new const String:g_saJumpTypes[][] = {
     "None",
     "LJ",
     "BHJ",
     "MBHJ",
     "LadJ"
+}
+new const String:g_saPrettyJumpTypes[][] = {
+    "None",
+    "LongJump",
+    "BunnyHop Jump",
+    "Multi BunnyHop Jump",
+    "LadderJump"
+}
+new const String:g_saJumpQualities[][] = {
+    "Impressive",
+    "Excellent",
+    "Outstanding",
+    "Unreal",
+    "Godlike"
 }
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
@@ -94,10 +171,57 @@ public OnPluginStart()
     g_hEnabled = CreateConVar("sm_stats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
 
-    // Remember to add HOOKS to OnCvarChange and modify OnConfigsExecuted
+    g_hLJImpressive = CreateConVar("sm_stats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive LongJump", _, true, 0.0);
+    g_hLJExcellent = CreateConVar("sm_stats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent LongJump", _, true, 0.0);
+    g_hLJOutstanding = CreateConVar("sm_stats_lj_outstanding", LJ_OUTSTANDING, "The distance required for an Outstanding LongJump", _, true, 0.0);
+    g_hLJUnreal = CreateConVar("sm_stats_lj_unreal", LJ_UNREAL, "The distance required for an Unreal LongJump", _, true, 0.0);
+    g_hLJGodlike = CreateConVar("sm_stats_lj_godlike", LJ_GODLIKE, "The distance required for a Godlike LongJump", _, true, 0.0);
 
+    g_hBHJImpressive = CreateConVar("sm_stats_bhj_impressive", BHJ_IMPRESSIVE, "The distance required for an Impressive BunnyHop Jump", _, true, 0.0);
+    g_hBHJExcellent = CreateConVar("sm_stats_bhj_excellent", BHJ_EXCELLENT, "The distance required for an Excellent BunnyHop Jump", _, true, 0.0);
+    g_hBHJOutstanding = CreateConVar("sm_stats_bhj_outstanding", BHJ_OUTSTANDING, "The distance required for an Outstanding BunnyHop Jump", _, true, 0.0);
+    g_hBHJUnreal = CreateConVar("sm_stats_bhj_unreal", BHJ_UNREAL, "The distance required for an Unreal BunnyHop Jump", _, true, 0.0);
+    g_hBHJGodlike = CreateConVar("sm_stats_bhj_godlike", BHJ_GODLIKE, "The distance required for a Godlike BunnyHop Jump", _, true, 0.0);
+
+    g_hMBHJImpressive = CreateConVar("sm_stats_lj_impressive", MBHJ_IMPRESSIVE, "The distance required for an Impressive Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJExcellent = CreateConVar("sm_stats_lj_excellent", MBHJ_EXCELLENT, "The distance required for an Excellent Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJOutstanding = CreateConVar("sm_stats_lj_outstanding", MBHJ_OUTSTANDING, "The distance required for an Outstanding Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJUnreal = CreateConVar("sm_stats_lj_unreal", MBHJ_UNREAL, "The distance required for an Unreal Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJGodlike = CreateConVar("sm_stats_lj_godlike", MBHJ_GODLIKE, "The distance required for a Godlike Multi BunnyHop Jump", _, true, 0.0);
+
+    g_hLadJImpressive = CreateConVar("sm_stats_ladj_impressive", LADJ_IMPRESSIVE, "The distance required for an Impressive LadderJump", _, true, 0.0);
+    g_hLadJExcellent = CreateConVar("sm_stats_ladj_excellent", LADJ_EXCELLENT, "The distance required for an Excellent LadderJump", _, true, 0.0);
+    g_hLadJOutstanding = CreateConVar("sm_stats_ladj_outstanding", LADJ_OUTSTANDING, "The distance required for an Outstanding LadderJump", _, true, 0.0);
+    g_hLadJUnreal = CreateConVar("sm_stats_ladj_unreal", LADJ_UNREAL, "The distance required for an Unreal LadderJump", _, true, 0.0);
+    g_hLadJGodlike = CreateConVar("sm_stats_ladj_godlike", LADJ_GODLIKE, "The distance required for a Godlike LadderJump", _, true, 0.0);
+    // Remember to add HOOKS to OnCvarChange | and also update OnConfigsExecuted
+    //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
     HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
+
+    HookConVarChange(g_hLJImpressive, OnCvarChange);
+    HookConVarChange(g_hLJExcellent, OnCvarChange);
+    HookConVarChange(g_hLJOutstanding, OnCvarChange);
+    HookConVarChange(g_hLJUnreal, OnCvarChange);
+    HookConVarChange(g_hLJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hBHJImpressive, OnCvarChange);
+    HookConVarChange(g_hBHJExcellent, OnCvarChange);
+    HookConVarChange(g_hBHJOutstanding, OnCvarChange);
+    HookConVarChange(g_hBHJUnreal, OnCvarChange);
+    HookConVarChange(g_hBHJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hMBHJImpressive, OnCvarChange);
+    HookConVarChange(g_hMBHJExcellent, OnCvarChange);
+    HookConVarChange(g_hMBHJOutstanding, OnCvarChange);
+    HookConVarChange(g_hMBHJUnreal, OnCvarChange);
+    HookConVarChange(g_hMBHJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hLadJImpressive, OnCvarChange);
+    HookConVarChange(g_hLadJExcellent, OnCvarChange);
+    HookConVarChange(g_hLadJOutstanding, OnCvarChange);
+    HookConVarChange(g_hLadJUnreal, OnCvarChange);
+    HookConVarChange(g_hLadJGodlike, OnCvarChange);
     
     //Hooked'em
     HookEvent("round_start", OnRoundStart, EventHookMode_PostNoCopy);
@@ -122,6 +246,30 @@ public OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
+
+    g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
+    g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
+    g_faQualityDistances[JUMP_LJ][OUTSTANDING] = GetConVarFloat(g_hLJOutstanding);
+    g_faQualityDistances[JUMP_LJ][UNREAL] = GetConVarFloat(g_hLJUnreal);
+    g_faQualityDistances[JUMP_LJ][GODLIKE] = GetConVarFloat(g_hLJGodlike);
+
+    g_faQualityDistances[JUMP_BHJ][IMPRESSIVE] = GetConVarFloat(g_hBHJImpressive);
+    g_faQualityDistances[JUMP_BHJ][EXCELLENT] = GetConVarFloat(g_hBHJExcellent);
+    g_faQualityDistances[JUMP_BHJ][OUTSTANDING] = GetConVarFloat(g_hBHJOutstanding);
+    g_faQualityDistances[JUMP_BHJ][UNREAL] = GetConVarFloat(g_hBHJUnreal);
+    g_faQualityDistances[JUMP_BHJ][GODLIKE] = GetConVarFloat(g_hBHJGodlike);
+
+    g_faQualityDistances[JUMP_MBHJ][IMPRESSIVE] = GetConVarFloat(g_hMBHJImpressive);
+    g_faQualityDistances[JUMP_MBHJ][EXCELLENT] = GetConVarFloat(g_hMBHJExcellent);
+    g_faQualityDistances[JUMP_MBHJ][OUTSTANDING] = GetConVarFloat(g_hMBHJOutstanding);
+    g_faQualityDistances[JUMP_MBHJ][UNREAL] = GetConVarFloat(g_hMBHJUnreal);
+    g_faQualityDistances[JUMP_MBHJ][GODLIKE] = GetConVarFloat(g_hMBHJGodlike);
+
+    g_faQualityDistances[JUMP_LADJ][IMPRESSIVE] = GetConVarFloat(g_hLadJImpressive);
+    g_faQualityDistances[JUMP_LADJ][EXCELLENT] = GetConVarFloat(g_hLadJExcellent);
+    g_faQualityDistances[JUMP_LADJ][OUTSTANDING] = GetConVarFloat(g_hLadJOutstanding);
+    g_faQualityDistances[JUMP_LADJ][UNREAL] = GetConVarFloat(g_hLadJUnreal);
+    g_faQualityDistances[JUMP_LADJ][GODLIKE] = GetConVarFloat(g_hLadJGodlike);
 }
 
 public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewValue[])
@@ -132,7 +280,18 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("sm_stats", sConVarName))
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("sm_display_delay_roundstart", sConVarName))
-        g_fDisplayDelayRoundstart = GetConVarFloat(hConVar);
+        g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
+
+    if(StrEqual("sm_stats_lj_impressive", sConVarName))
+        g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
+    if(StrEqual("sm_stats_lj_excellent", sConVarName))
+        g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(hConVar); else
+    if(StrEqual("sm_stats_lj_outstanding", sConVarName))
+        g_faQualityDistances[JUMP_LJ][OUTSTANDING] = GetConVarFloat(hConVar); else
+    if(StrEqual("sm_stats_lj_unreal", sConVarName))
+        g_faQualityDistances[JUMP_LJ][UNREAL] = GetConVarFloat(hConVar); else
+    if(StrEqual("sm_stats_lj_godlike", sConVarName))
+        g_faQualityDistances[JUMP_LJ][GODLIKE] = GetConVarFloat(hConVar);
 }
 
 public OnClientCookiesCached(iClient)
@@ -314,7 +473,7 @@ public Action:Command_ToggleStats(iClient, iArgs)
         else
             SetClientCookie(iClient, g_hToggleStatsCookie, "on");
         
-        PrintToChat(iClient, "  \x04[JS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
+        PrintToChat(iClient, "\x04[JS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
     }
     return Plugin_Handled;
 }
@@ -406,7 +565,7 @@ public RecordJump(iClient)
         g_faJumpCoord[iClient][2] = 0.0;
         g_faLandCoord[iClient][2] = 0.0;
         g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
-        if(g_faDistance[iClient] >= MINIMUM_JUMP_DISTANCE) {
+        if(g_faDistance[iClient] >= MINIMUM_LJ_DISTANCE) {
             if(g_iaBhops[iClient] == 0) {
                 if(g_baLadderJumped[iClient]) {
                     g_iaJumpType[iClient] = JUMP_LADJ;
@@ -443,6 +602,31 @@ public RecordJump(iClient)
     }
     else // the player probably didn't intend a longjump so the display will show the last valid jump
         g_iaJumpType[iClient] = JUMP_INVALID;
+
+    // announce the jump
+    if(g_iaJumpType[iClient] > JUMP_NONE) {
+        new iType = g_iaJumpType[iClient];
+
+        new iQuality;
+        for(iQuality = -1; iQuality < sizeof(g_saJumpQualities) - 1; iQuality++) {
+            if(g_faDistance[iClient] < g_faQualityDistances[iType][iQuality + 1])
+                break;
+        }
+
+        if(iQuality > -1) {
+            decl String:sNickname[MAX_NAME_LENGTH];
+            GetClientName(iClient, sNickname, sizeof(sNickname));
+
+            decl String:sArticle[3] = "a";
+            decl String:sFirstLetter[2];
+            Format(sFirstLetter, sizeof(sFirstLetter), "%c", g_saPrettyJumpTypes[iType][0]);
+            if(StrContains("aeiouh", sFirstLetter, false))
+                Format(sArticle, sizeof(sArticle), "an");
+
+            PrintToChatAll("[JS] %s did %s %s %.3f units %s.", 
+                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+        }
+    }
 }
 
 public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon)
