@@ -168,32 +168,32 @@ public OnPluginStart()
 {
     //ConVars here
     CreateConVar("hidenseek_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
-    g_hEnabled = CreateConVar("sm_stats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
+    g_hEnabled = CreateConVar("sm_jumpstats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
 
-    g_hLJImpressive = CreateConVar("sm_stats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive LongJump", _, true, 0.0);
-    g_hLJExcellent = CreateConVar("sm_stats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent LongJump", _, true, 0.0);
-    g_hLJOutstanding = CreateConVar("sm_stats_lj_outstanding", LJ_OUTSTANDING, "The distance required for an Outstanding LongJump", _, true, 0.0);
-    g_hLJUnreal = CreateConVar("sm_stats_lj_unreal", LJ_UNREAL, "The distance required for an Unreal LongJump", _, true, 0.0);
-    g_hLJGodlike = CreateConVar("sm_stats_lj_godlike", LJ_GODLIKE, "The distance required for a Godlike LongJump", _, true, 0.0);
+    g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive LongJump", _, true, 0.0);
+    g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent LongJump", _, true, 0.0);
+    g_hLJOutstanding = CreateConVar("sm_jumpstats_lj_outstanding", LJ_OUTSTANDING, "The distance required for an Outstanding LongJump", _, true, 0.0);
+    g_hLJUnreal = CreateConVar("sm_jumpstats_lj_unreal", LJ_UNREAL, "The distance required for an Unreal LongJump", _, true, 0.0);
+    g_hLJGodlike = CreateConVar("sm_jumpstats_lj_godlike", LJ_GODLIKE, "The distance required for a Godlike LongJump", _, true, 0.0);
 
-    g_hBHJImpressive = CreateConVar("sm_stats_bhj_impressive", BHJ_IMPRESSIVE, "The distance required for an Impressive BunnyHop Jump", _, true, 0.0);
-    g_hBHJExcellent = CreateConVar("sm_stats_bhj_excellent", BHJ_EXCELLENT, "The distance required for an Excellent BunnyHop Jump", _, true, 0.0);
-    g_hBHJOutstanding = CreateConVar("sm_stats_bhj_outstanding", BHJ_OUTSTANDING, "The distance required for an Outstanding BunnyHop Jump", _, true, 0.0);
-    g_hBHJUnreal = CreateConVar("sm_stats_bhj_unreal", BHJ_UNREAL, "The distance required for an Unreal BunnyHop Jump", _, true, 0.0);
-    g_hBHJGodlike = CreateConVar("sm_stats_bhj_godlike", BHJ_GODLIKE, "The distance required for a Godlike BunnyHop Jump", _, true, 0.0);
+    g_hBHJImpressive = CreateConVar("sm_jumpstats_bhj_impressive", BHJ_IMPRESSIVE, "The distance required for an Impressive BunnyHop Jump", _, true, 0.0);
+    g_hBHJExcellent = CreateConVar("sm_jumpstats_bhj_excellent", BHJ_EXCELLENT, "The distance required for an Excellent BunnyHop Jump", _, true, 0.0);
+    g_hBHJOutstanding = CreateConVar("sm_jumpstats_bhj_outstanding", BHJ_OUTSTANDING, "The distance required for an Outstanding BunnyHop Jump", _, true, 0.0);
+    g_hBHJUnreal = CreateConVar("sm_jumpstats_bhj_unreal", BHJ_UNREAL, "The distance required for an Unreal BunnyHop Jump", _, true, 0.0);
+    g_hBHJGodlike = CreateConVar("sm_jumpstats_bhj_godlike", BHJ_GODLIKE, "The distance required for a Godlike BunnyHop Jump", _, true, 0.0);
 
-    g_hMBHJImpressive = CreateConVar("sm_stats_lj_impressive", MBHJ_IMPRESSIVE, "The distance required for an Impressive Multi BunnyHop Jump", _, true, 0.0);
-    g_hMBHJExcellent = CreateConVar("sm_stats_lj_excellent", MBHJ_EXCELLENT, "The distance required for an Excellent Multi BunnyHop Jump", _, true, 0.0);
-    g_hMBHJOutstanding = CreateConVar("sm_stats_lj_outstanding", MBHJ_OUTSTANDING, "The distance required for an Outstanding Multi BunnyHop Jump", _, true, 0.0);
-    g_hMBHJUnreal = CreateConVar("sm_stats_lj_unreal", MBHJ_UNREAL, "The distance required for an Unreal Multi BunnyHop Jump", _, true, 0.0);
-    g_hMBHJGodlike = CreateConVar("sm_stats_lj_godlike", MBHJ_GODLIKE, "The distance required for a Godlike Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJImpressive = CreateConVar("sm_jumpstats_mbhj_impressive", MBHJ_IMPRESSIVE, "The distance required for an Impressive Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJExcellent = CreateConVar("sm_jumpstats_mbhj_excellent", MBHJ_EXCELLENT, "The distance required for an Excellent Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJOutstanding = CreateConVar("sm_jumpstats_mbhj_outstanding", MBHJ_OUTSTANDING, "The distance required for an Outstanding Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJUnreal = CreateConVar("sm_jumpstats_mbhj_unreal", MBHJ_UNREAL, "The distance required for an Unreal Multi BunnyHop Jump", _, true, 0.0);
+    g_hMBHJGodlike = CreateConVar("sm_jumpstats_mbhj_godlike", MBHJ_GODLIKE, "The distance required for a Godlike Multi BunnyHop Jump", _, true, 0.0);
 
-    g_hLadJImpressive = CreateConVar("sm_stats_ladj_impressive", LADJ_IMPRESSIVE, "The distance required for an Impressive LadderJump", _, true, 0.0);
-    g_hLadJExcellent = CreateConVar("sm_stats_ladj_excellent", LADJ_EXCELLENT, "The distance required for an Excellent LadderJump", _, true, 0.0);
-    g_hLadJOutstanding = CreateConVar("sm_stats_ladj_outstanding", LADJ_OUTSTANDING, "The distance required for an Outstanding LadderJump", _, true, 0.0);
-    g_hLadJUnreal = CreateConVar("sm_stats_ladj_unreal", LADJ_UNREAL, "The distance required for an Unreal LadderJump", _, true, 0.0);
-    g_hLadJGodlike = CreateConVar("sm_stats_ladj_godlike", LADJ_GODLIKE, "The distance required for a Godlike LadderJump", _, true, 0.0);
+    g_hLadJImpressive = CreateConVar("sm_jumpstats_ladj_impressive", LADJ_IMPRESSIVE, "The distance required for an Impressive LadderJump", _, true, 0.0);
+    g_hLadJExcellent = CreateConVar("sm_jumpstats_ladj_excellent", LADJ_EXCELLENT, "The distance required for an Excellent LadderJump", _, true, 0.0);
+    g_hLadJOutstanding = CreateConVar("sm_jumpstats_ladj_outstanding", LADJ_OUTSTANDING, "The distance required for an Outstanding LadderJump", _, true, 0.0);
+    g_hLadJUnreal = CreateConVar("sm_jumpstats_ladj_unreal", LADJ_UNREAL, "The distance required for an Unreal LadderJump", _, true, 0.0);
+    g_hLadJGodlike = CreateConVar("sm_jumpstats_ladj_godlike", LADJ_GODLIKE, "The distance required for a Godlike LadderJump", _, true, 0.0);
     // Remember to add HOOKS to OnCvarChange | and also update OnConfigsExecuted
     //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
@@ -277,20 +277,20 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     decl String:sConVarName[64];
     GetConVarName(hConVar, sConVarName, sizeof(sConVarName));
 
-    if(StrEqual("sm_stats", sConVarName))
+    if(StrEqual("sm_jumpstats", sConVarName))
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("sm_display_delay_roundstart", sConVarName))
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
 
-    if(StrEqual("sm_stats_lj_impressive", sConVarName))
+    if(StrEqual("sm_jumpstats_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
-    if(StrEqual("sm_stats_lj_excellent", sConVarName))
+    if(StrEqual("sm_jumpstats_lj_excellent", sConVarName))
         g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(hConVar); else
-    if(StrEqual("sm_stats_lj_outstanding", sConVarName))
+    if(StrEqual("sm_jumpstats_lj_outstanding", sConVarName))
         g_faQualityDistances[JUMP_LJ][OUTSTANDING] = GetConVarFloat(hConVar); else
-    if(StrEqual("sm_stats_lj_unreal", sConVarName))
+    if(StrEqual("sm_jumpstats_lj_unreal", sConVarName))
         g_faQualityDistances[JUMP_LJ][UNREAL] = GetConVarFloat(hConVar); else
-    if(StrEqual("sm_stats_lj_godlike", sConVarName))
+    if(StrEqual("sm_jumpstats_lj_godlike", sConVarName))
         g_faQualityDistances[JUMP_LJ][GODLIKE] = GetConVarFloat(hConVar);
 }
 
