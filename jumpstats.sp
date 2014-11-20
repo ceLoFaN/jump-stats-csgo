@@ -5,7 +5,7 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.1"
+#define PLUGIN_VERSION              "0.2.2"
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
@@ -230,6 +230,7 @@ public OnPluginStart()
     HookConVarChange(g_hLadJGodlike, OnCvarChange);
     
     //Hooked'em
+    HookEvent("player_spawn", OnPlayerSpawn);
     HookEvent("round_start", OnRoundStart, EventHookMode_PostNoCopy);
     HookEvent("round_end", OnRoundEnd);
     HookEvent("player_death", OnPlayerDeath);
@@ -363,6 +364,17 @@ public Action:OnRoundStart(Handle:hEvent, const String:sName[], bool:dontBroadca
     if(g_hInitialDisplayTimer != INVALID_HANDLE)
         KillTimer(g_hInitialDisplayTimer);
     g_hInitialDisplayTimer = CreateTimer(g_fDisplayDelayRoundstart, ShowDisplay);
+
+    return Plugin_Continue;
+}
+
+public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroadcast)
+{
+    if(!g_bEnabled)
+        return Plugin_Continue;
+    new iId = GetEventInt(hEvent, "userid");
+    new iClient = GetClientOfUserId(iId);
+    g_baJumped[iClient] = false;
 
     return Plugin_Continue;
 }
