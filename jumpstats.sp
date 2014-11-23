@@ -10,6 +10,7 @@
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 
+#define BHOP_TIME                   0.1
 // Jump Types
 #define JUMP_INVALID                -3
 #define JUMP_VERTICAL               -2
@@ -21,6 +22,12 @@
 #define JUMP_BHJ                    2
 #define JUMP_MBHJ                   3
 #define JUMP_LADJ                   4
+
+// Client Flag
+#define JUST_LANDED                 2
+#define ON_LAND                     1
+#define IN_AIR                      0
+#define JUST_AIRED                  -1
 
 // Jump Distances
 #define IMPRESSIVE                  0
@@ -132,6 +139,7 @@ new Float:g_faLandCoord[MAXPLAYERS + 1][3];
 new Float:g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
 new Float:g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
 new g_iaBhops[MAXPLAYERS + 1] = {0, ...};
+new g_iaFlag[MAXPLAYERS + 1] = {0, ...};
 new g_iaFrame[MAXPLAYERS + 1] = {0, ...};
 new g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
 new g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
@@ -502,25 +510,14 @@ public Action:Command_ToggleStats(iClient, iArgs)
 public SDKHook_StartTouch_Callback(iClient, iTouched)
 {
     if(g_bEnabled && iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
-        if(g_baJumped[iClient] && IsPlayerAlive(iClient)) {
-            g_baCanJump[iClient] = true;
-            if(iTouched > 0) 
-                InterruptJump(iClient);
-            else if(iTouched == 0) {
-                if(GetEntityFlags(iClient) & FL_ONGROUND) {
-                    if(!g_baJustHopped[iClient]) {
-                        if(!g_baCanBhop[iClient]) {
-                            CreateTimer(0.1, StopBhopRecord, iClient);
-                            g_baAnnounceLastJump[iClient] = true;
-                            g_baCanBhop[iClient] = true;
-                        }            
-                        RecordJump(iClient);
-                        g_baJumped[iClient] = false;
-                        g_baLadderJumped[iClient] = false;
-                    }
-                }
-                else
-                    InterruptJump(iClient);
+        if(IsPlayerAlive(iClient)) {
+            if(g_baJumped[iClient]) {  // if the player jumped before the touch occured
+                g_baCanJump[iClient] = true;  // the player can jump again (needs reworking, since the player can be in air)
+                if(iTouched > 0)  // the player touched an entity (not the world)
+                    InterruptJump(iClient);  // therefore we interrupt the jump
+                else if(iTouched == 0)   // if the player touched the world
+                    if(!(GetEntityFlags(iClient) & FL_ONGROUND))  // and it's currently standing on the ground
+                        InterruptJump(iClient);  // interrupt the jump recording
             }
         }
     }
@@ -596,13 +593,14 @@ public AnnounceLastJump(iClient)
 
 public Action:StopBhopRecord(Handle:hTimer, any:iClient)
 {
-    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
+    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient))
         g_baCanBhop[iClient] = false;
-        if(g_bBunnyHopCancelsAnnouncer) {
-            if(g_baAnnounceLastJump[iClient])
-                AnnounceLastJump(iClient);
-        }
-    }
+}
+
+public Action:AnnounceLastJumpDelayed(Handle:hTimer, any:iClient)
+{
+    if(g_baAnnounceLastJump[iClient])
+        AnnounceLastJump(iClient);
 }
 
 public RecordJump(iClient)
@@ -657,13 +655,15 @@ public RecordJump(iClient)
     else // the player probably didn't intend a longjump so the display will show the last valid jump
         g_iaJumpType[iClient] = JUMP_INVALID;
 
-    if(!g_bBunnyHopCancelsAnnouncer)
-        AnnounceLastJump(iClient);
-    else
-        g_baAnnounceLastJump[iClient] = true;
+    if(g_iaJumpType[iClient] > JUMP_NONE) {
+        if(!g_bBunnyHopCancelsAnnouncer)
+            AnnounceLastJump(iClient);
+        else
+            CreateTimer(BHOP_TIME + 0.05, AnnounceLastJumpDelayed, iClient, TIMER_FLAG_NO_MAPCHANGE);  // might require 2 * BHOP_TIME
+    }
 }
 
-public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon)
+public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon) //OnRunCmd
 {
     if(!g_bEnabled)
         return Plugin_Continue;
@@ -714,42 +714,59 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     if(GetEntityMoveType(iClient) == MOVETYPE_LADDER) {
         if(!g_baOnLadder[iClient]) {
             g_baOnLadder[iClient] = true;
-            g_iaBhops[iClient] = 0;
         }
     }
 
     // The player is on the ground
     if(GetEntityFlags(iClient) & FL_ONGROUND) {
+        if(g_iaFlag[iClient] == IN_AIR) {
+            g_iaFlag[iClient] = JUST_LANDED;
+            g_baCanBhop[iClient] = true;
+            CreateTimer(BHOP_TIME, StopBhopRecord, iClient, TIMER_FLAG_NO_MAPCHANGE);
+        }
+        else if(g_iaFlag[iClient] == JUST_LANDED)
+            g_iaFlag[iClient] = ON_LAND;
+
         if(iButtons & IN_JUMP) {
-            if(g_baAntiJump[iClient] && !g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings (because runcmd runs on every frame and it can                                                                                                       // detect multiple instances of the same jump)
-                if(g_baJumped[iClient]) {   // player jumped during the same frame he landed
-                    RecordJump(iClient);
-                    GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
-                    g_iaBhops[iClient]++;            // counts the number of normal bhops
-                    g_iaFrame[iClient] = 0;            // used to avoid multiple recordings of a jump
-                    g_baJustHopped[iClient] = true;    // the player bhopped, used to avoid multiple recordings
-                    g_baJumped[iClient] = true;        // the player jumped (landing will set this to false)
-                    g_baCanJump[iClient] = false;    // this variable looks like the opposite of g_baJumped but it is needed to avoid multiple recordings of both perf and norm bhops
-                    g_baAnnounceLastJump[iClient] = false;
-                }
-                else if(g_baCanJump[iClient]) {
-                    GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
-                    if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
-                        g_iaBhops[iClient]++;
-                        g_baAnnounceLastJump[iClient] = false;
+            if(!g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings (because runcmd runs on every frame and it can                                                                                                       // detect multiple instances of the same jump)
+                if(g_baAntiJump[iClient]) {
+                    if(g_baJumped[iClient]) {   // player jumped during the same frame he landed after jumping
+                        g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
+                        RecordJump(iClient);
+                        g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
+                        GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                        g_iaBhops[iClient]++;            // counts the number of normal bhops
+                        g_iaFrame[iClient] = 0;            // used to avoid multiple recordings of a jump
+                        g_baJustHopped[iClient] = true;    // the player bhopped, used to avoid multiple recordings
+                        g_baJumped[iClient] = true;        // the player jumped (landing will set this to false)
+                        g_baCanJump[iClient] = false;    // this variable looks like the opposite of g_baJumped but it is needed to avoid multiple recordings of both perf and norm bhops
                     }
                     else {
-                        g_iaBhops[iClient] = 0;
-                        g_baAnnounceLastJump[iClient] = true;
+                        if(g_baCanJump[iClient]) {
+                            GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                            if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
+                                g_iaBhops[iClient]++;       // update the bunnyhop counter
+                                g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
+                            }
+                            else {
+                                g_iaBhops[iClient] = 0;  // reset the bunnyhop counter
+                                g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
+                            }
+                            g_iaFrame[iClient] = 0;
+                            g_baJustHopped[iClient] = true;
+                            g_baJumped[iClient] = true;
+                            g_baCanJump[iClient] = false;
+                        }
                     }
-                    g_iaFrame[iClient] = 0;
-                    g_baJustHopped[iClient] = true;
-                    g_baJumped[iClient] = true;
-                    g_baCanJump[iClient] = false;
                 }
-            }
-            else {
-                g_baJumped[iClient] = false;
+                else {  // player is on ground and holding +jump (space)
+                    if(g_iaFlag[iClient] == JUST_LANDED) {  // if the player just landed then record this jump
+                        g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
+                        RecordJump(iClient);
+                        GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                    }
+                    g_baJumped[iClient] = false;
+                }
             }
         }
         else {    //the player didn't +jump this time (so we can assume a -jump was made before or even now)
@@ -757,24 +774,34 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
             if(g_baJumped[iClient]) {
                 g_baJumped[iClient] = false;
                 if(!g_baJustHopped[iClient]) {        // player jumped before
+                    g_baAnnounceLastJump[iClient] = true;
                     RecordJump(iClient);
                     g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
-                    if(!g_baCanBhop[iClient]) {  // !!! this should be moved to recently landed, not stopped jumping
-                        CreateTimer(0.1, StopBhopRecord, iClient);    // give the player a chance to bhop
-                        g_baCanBhop[iClient] = true;
-                        g_baAnnounceLastJump = true;
-                    }      
+                }
+            }
+            else {
+                if(g_iaFlag[iClient] == JUST_LANDED) {
+                    g_baAnnounceLastJump[iClient] = false;
                 }
             }
         }     
     }
-    else if(GetEntityMoveType(iClient) == MOVETYPE_WALK)
-        if(g_baOnLadder[iClient]) { // the player just detached from the ladder
-            GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
-            g_baOnLadder[iClient] = false;
-            g_baLadderJumped[iClient] = true; // this might not be 100% true but it works
-            g_baJumped[iClient] = true;
-        }
+    else {
+        if(g_iaFlag[iClient] > IN_AIR)
+            g_iaFlag[iClient] = JUST_AIRED;
+        else if(g_iaFlag[iClient] == JUST_AIRED)
+            g_iaFlag[iClient] = IN_AIR;
+        if(!g_baJumped[iClient] && g_iaFlag[iClient] == JUST_AIRED)
+            g_iaBhops[iClient] = 0;
+        if(GetEntityMoveType(iClient) == MOVETYPE_WALK)
+            if(g_baOnLadder[iClient]) { // the player just detached from the ladder
+                GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                g_baOnLadder[iClient] = false;
+                g_baLadderJumped[iClient] = true; // this might not be 100% true but it works
+                g_iaBhops[iClient] = 0;
+                g_baJumped[iClient] = true;
+            }
+    }
 
     if(!(iButtons & IN_JUMP))
         g_baAntiJump[iClient] = true;    // -jump has been recorded
