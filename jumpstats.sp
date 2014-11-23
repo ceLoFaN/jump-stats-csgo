@@ -5,12 +5,14 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.2"
+#define PLUGIN_VERSION              "0.2.3"
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 
 #define BHOP_TIME                   0.1
+
+
 // Jump Types
 #define JUMP_INVALID                -3
 #define JUMP_VERTICAL               -2
@@ -36,33 +38,33 @@
 #define UNREAL                      3
 #define GODLIKE                     4
 
-#define MINIMUM_LJ_DISTANCE         215.0
+#define MINIMUM_LJ_DISTANCE         200.0
 #define LJ_IMPRESSIVE               "230.0"
 #define LJ_EXCELLENT                "235.0"
 #define LJ_OUTSTANDING              "240.0"
 #define LJ_UNREAL                   "245.0"
 #define LJ_GODLIKE                  "250.0"
 
-#define MINIMUM_BHJ_DISTANCE        215.0
+#define MINIMUM_BHJ_DISTANCE        200.0
 #define BHJ_IMPRESSIVE              "248.0"
 #define BHJ_EXCELLENT               "256.0"
 #define BHJ_OUTSTANDING             "262.0"
 #define BHJ_UNREAL                  "270.0"
 #define BHJ_GODLIKE                 "278.0"
 
-#define MINIMUM_MBHJ_DISTANCE       215.0
+#define MINIMUM_MBHJ_DISTANCE       200.0
 #define MBHJ_IMPRESSIVE             "248.0"
 #define MBHJ_EXCELLENT              "256.0"
 #define MBHJ_OUTSTANDING            "262.0"
 #define MBHJ_UNREAL                 "270.0"
 #define MBHJ_GODLIKE                "278.0"
 
-#define MINIMUM_LADJ_DISTANCE       135.0
-#define LADJ_IMPRESSIVE             "152.0"
+#define MINIMUM_LADJ_DISTANCE       125.0
+#define LADJ_IMPRESSIVE             "150.0"
 #define LADJ_EXCELLENT              "158.0"
-#define LADJ_OUTSTANDING            "164.0"
-#define LADJ_UNREAL                 "170.0"
-#define LADJ_GODLIKE                "176.0"
+#define LADJ_OUTSTANDING            "166.0"
+#define LADJ_UNREAL                 "174.0"
+#define LADJ_GODLIKE                "182.0"
 
 
 //Spec Defines
