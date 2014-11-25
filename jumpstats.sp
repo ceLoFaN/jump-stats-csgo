@@ -1,3 +1,5 @@
+/* Special thanks to DocG and Delusional for testing */
+
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
@@ -5,13 +7,12 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.3"
+#define PLUGIN_VERSION              "0.2.4"
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 
 #define BHOP_TIME                   0.1
-
 
 // Jump Types
 #define JUMP_INVALID                -3
@@ -19,11 +20,22 @@
 #define JUMP_TOO_SHORT              -1
 #define JUMP_NONE                   0
 
-#define VALID_JUMP_TYPES            4
+#define VALID_JUMP_TYPES            7
 #define JUMP_LJ                     1
 #define JUMP_BHJ                    2
 #define JUMP_MBHJ                   3
 #define JUMP_LADJ                   4
+#define JUMP_WHJ                    5
+#define JUMP_LDHJ                   6
+#define JUMP_LBHJ                   7
+
+// Jump Contexts
+#define NONE                        0
+#define JUMPED                      1
+#define DROPPED                     2
+#define LADDER_UNKNOWN              3
+#define LADDER_DROPPED              4
+#define LADDER_JUMPED               5
 
 // Client Flag
 #define JUST_LANDED                 2
@@ -66,6 +78,26 @@
 #define LADJ_UNREAL                 "174.0"
 #define LADJ_GODLIKE                "182.0"
 
+#define MINIMUM_WHJ_DISTANCE        200.0
+#define WHJ_IMPRESSIVE              "248.0"
+#define WHJ_EXCELLENT               "256.0"
+#define WHJ_OUTSTANDING             "262.0"
+#define WHJ_UNREAL                  "270.0"
+#define WHJ_GODLIKE                 "278.0"
+
+#define MINIMUM_LDHJ_DISTANCE        200.0
+#define LDHJ_IMPRESSIVE              "248.0"
+#define LDHJ_EXCELLENT               "256.0"
+#define LDHJ_OUTSTANDING             "262.0"
+#define LDHJ_UNREAL                  "270.0"
+#define LDHJ_GODLIKE                 "278.0"
+
+#define MINIMUM_LBHJ_DISTANCE        200.0
+#define LBHJ_IMPRESSIVE              "236.0"
+#define LBHJ_EXCELLENT               "244.0"
+#define LBHJ_OUTSTANDING             "250.0"
+#define LBHJ_UNREAL                  "258.0"
+#define LBHJ_GODLIKE                 "266.0"
 
 //Spec Defines
 #define REFRESH_RATE                0.1
@@ -114,6 +146,24 @@ new Handle:g_hLadJOutstanding = INVALID_HANDLE;
 new Handle:g_hLadJUnreal = INVALID_HANDLE;
 new Handle:g_hLadJGodlike = INVALID_HANDLE;
 
+new Handle:g_hWHJImpressive = INVALID_HANDLE;
+new Handle:g_hWHJExcellent = INVALID_HANDLE;
+new Handle:g_hWHJOutstanding = INVALID_HANDLE;
+new Handle:g_hWHJUnreal = INVALID_HANDLE;
+new Handle:g_hWHJGodlike = INVALID_HANDLE;
+
+new Handle:g_hLDHJImpressive = INVALID_HANDLE;
+new Handle:g_hLDHJExcellent = INVALID_HANDLE;
+new Handle:g_hLDHJOutstanding = INVALID_HANDLE;
+new Handle:g_hLDHJUnreal = INVALID_HANDLE;
+new Handle:g_hLDHJGodlike = INVALID_HANDLE;
+
+new Handle:g_hLBHJImpressive = INVALID_HANDLE;
+new Handle:g_hLBHJExcellent = INVALID_HANDLE;
+new Handle:g_hLBHJOutstanding = INVALID_HANDLE;
+new Handle:g_hLBHJUnreal = INVALID_HANDLE;
+new Handle:g_hLBHJGodlike = INVALID_HANDLE;
+
 new bool:g_bEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
@@ -128,13 +178,13 @@ new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
 new Handle:g_hDisplayTimer = INVALID_HANDLE;
 new Handle:g_hInitialDisplayTimer = INVALID_HANDLE;
 new bool:g_baStats[MAXPLAYERS + 1] = {true, ...};
-new bool:g_baJumped[MAXPLAYERS + 1] = {false, ...};
+new g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
+new g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
 new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
-new bool:g_baLadderJumped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
 new Float:g_faJumpCoord[MAXPLAYERS + 1][3];
 new Float:g_faLandCoord[MAXPLAYERS + 1][3];
@@ -154,14 +204,20 @@ new const String:g_saJumpTypes[][] = {
     "LJ",
     "BHJ",
     "MBHJ",
-    "LadJ"
+    "LadJ",
+    "WHJ",
+    "LDHJ",
+    "LBHJ"
 }
 new const String:g_saPrettyJumpTypes[][] = {
     "None",
-    "LongJump",
+    "Long Jump",
     "BunnyHop Jump",
     "Multi BunnyHop Jump",
-    "LadderJump"
+    "Ladder Jump",
+    "WeirdHop Jump",
+    "Ladder DropHop Jump",
+    "Ladder BunnyHop Jump"
 }
 new const String:g_saJumpQualities[][] = {
     "Impressive",
@@ -186,11 +242,11 @@ public OnPluginStart()
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("sm_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
 
-    g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive LongJump", _, true, 0.0);
-    g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent LongJump", _, true, 0.0);
-    g_hLJOutstanding = CreateConVar("sm_jumpstats_lj_outstanding", LJ_OUTSTANDING, "The distance required for an Outstanding LongJump", _, true, 0.0);
-    g_hLJUnreal = CreateConVar("sm_jumpstats_lj_unreal", LJ_UNREAL, "The distance required for an Unreal LongJump", _, true, 0.0);
-    g_hLJGodlike = CreateConVar("sm_jumpstats_lj_godlike", LJ_GODLIKE, "The distance required for a Godlike LongJump", _, true, 0.0);
+    g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
+    g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
+    g_hLJOutstanding = CreateConVar("sm_jumpstats_lj_outstanding", LJ_OUTSTANDING, "The distance required for an Outstanding Long Jump", _, true, 0.0);
+    g_hLJUnreal = CreateConVar("sm_jumpstats_lj_unreal", LJ_UNREAL, "The distance required for an Unreal Long Jump", _, true, 0.0);
+    g_hLJGodlike = CreateConVar("sm_jumpstats_lj_godlike", LJ_GODLIKE, "The distance required for a Godlike Long Jump", _, true, 0.0);
 
     g_hBHJImpressive = CreateConVar("sm_jumpstats_bhj_impressive", BHJ_IMPRESSIVE, "The distance required for an Impressive BunnyHop Jump", _, true, 0.0);
     g_hBHJExcellent = CreateConVar("sm_jumpstats_bhj_excellent", BHJ_EXCELLENT, "The distance required for an Excellent BunnyHop Jump", _, true, 0.0);
@@ -204,11 +260,29 @@ public OnPluginStart()
     g_hMBHJUnreal = CreateConVar("sm_jumpstats_mbhj_unreal", MBHJ_UNREAL, "The distance required for an Unreal Multi BunnyHop Jump", _, true, 0.0);
     g_hMBHJGodlike = CreateConVar("sm_jumpstats_mbhj_godlike", MBHJ_GODLIKE, "The distance required for a Godlike Multi BunnyHop Jump", _, true, 0.0);
 
-    g_hLadJImpressive = CreateConVar("sm_jumpstats_ladj_impressive", LADJ_IMPRESSIVE, "The distance required for an Impressive LadderJump", _, true, 0.0);
-    g_hLadJExcellent = CreateConVar("sm_jumpstats_ladj_excellent", LADJ_EXCELLENT, "The distance required for an Excellent LadderJump", _, true, 0.0);
-    g_hLadJOutstanding = CreateConVar("sm_jumpstats_ladj_outstanding", LADJ_OUTSTANDING, "The distance required for an Outstanding LadderJump", _, true, 0.0);
-    g_hLadJUnreal = CreateConVar("sm_jumpstats_ladj_unreal", LADJ_UNREAL, "The distance required for an Unreal LadderJump", _, true, 0.0);
-    g_hLadJGodlike = CreateConVar("sm_jumpstats_ladj_godlike", LADJ_GODLIKE, "The distance required for a Godlike LadderJump", _, true, 0.0);
+    g_hLadJImpressive = CreateConVar("sm_jumpstats_ladj_impressive", LADJ_IMPRESSIVE, "The distance required for an Impressive Ladder Jump", _, true, 0.0);
+    g_hLadJExcellent = CreateConVar("sm_jumpstats_ladj_excellent", LADJ_EXCELLENT, "The distance required for an Excellent Ladder Jump", _, true, 0.0);
+    g_hLadJOutstanding = CreateConVar("sm_jumpstats_ladj_outstanding", LADJ_OUTSTANDING, "The distance required for an Outstanding Ladder Jump", _, true, 0.0);
+    g_hLadJUnreal = CreateConVar("sm_jumpstats_ladj_unreal", LADJ_UNREAL, "The distance required for an Unreal Ladder Jump", _, true, 0.0);
+    g_hLadJGodlike = CreateConVar("sm_jumpstats_ladj_godlike", LADJ_GODLIKE, "The distance required for a Godlike Ladder Jump", _, true, 0.0);
+
+    g_hWHJImpressive = CreateConVar("sm_jumpstats_whj_impressive", WHJ_IMPRESSIVE, "The distance required for an Impressive WeirdHop Jump", _, true, 0.0);
+    g_hWHJExcellent = CreateConVar("sm_jumpstats_whj_excellent", WHJ_EXCELLENT, "The distance required for an Excellent WeirdHop Jump", _, true, 0.0);
+    g_hWHJOutstanding = CreateConVar("sm_jumpstats_whj_outstanding", WHJ_OUTSTANDING, "The distance required for an Outstanding WeirdHop Jump", _, true, 0.0);
+    g_hWHJUnreal = CreateConVar("sm_jumpstats_whj_unreal", WHJ_UNREAL, "The distance required for an Unreal WeirdHop Jump", _, true, 0.0);
+    g_hWHJGodlike = CreateConVar("sm_jumpstats_whj_godlike", WHJ_GODLIKE, "The distance required for a Godlike WeirdHop Jump", _, true, 0.0);
+
+    g_hLDHJImpressive = CreateConVar("sm_jumpstats_ldhj_impressive", LDHJ_IMPRESSIVE, "The distance required for an Impressive Ladder DropHop Jump", _, true, 0.0);
+    g_hLDHJExcellent = CreateConVar("sm_jumpstats_ldhj_excellent", LDHJ_EXCELLENT, "The distance required for an Excellent Ladder DropHop Jump", _, true, 0.0);
+    g_hLDHJOutstanding = CreateConVar("sm_jumpstats_ldhj_outstanding", LDHJ_OUTSTANDING, "The distance required for an Outstanding Ladder DropHop Jump", _, true, 0.0);
+    g_hLDHJUnreal = CreateConVar("sm_jumpstats_ldhj_unreal", LDHJ_UNREAL, "The distance required for an Unreal Ladder DropHop Jump", _, true, 0.0);
+    g_hLDHJGodlike = CreateConVar("sm_jumpstats_ldhj_godlike", LDHJ_GODLIKE, "The distance required for a Godlike Ladder DropHop Jump", _, true, 0.0);
+    
+    g_hLBHJImpressive = CreateConVar("sm_jumpstats_lbhj_impressive", LBHJ_IMPRESSIVE, "The distance required for an Impressive Ladder BunnyHop Jump", _, true, 0.0);
+    g_hLBHJExcellent = CreateConVar("sm_jumpstats_lbhj_excellent", LBHJ_EXCELLENT, "The distance required for an Excellent Ladder BunnyHop Jump", _, true, 0.0);
+    g_hLBHJOutstanding = CreateConVar("sm_jumpstats_lbhj_outstanding", LBHJ_OUTSTANDING, "The distance required for an Outstanding Ladder BunnyHop Jump", _, true, 0.0);
+    g_hLBHJUnreal = CreateConVar("sm_jumpstats_lbhj_unreal", LBHJ_UNREAL, "The distance required for an Unreal Ladder BunnyHop Jump", _, true, 0.0);
+    g_hLBHJGodlike = CreateConVar("sm_jumpstats_lbhj_godlike", LBHJ_GODLIKE, "The distance required for a Godlike Ladder BunnyHop Jump", _, true, 0.0);
     // Remember to add HOOKS to OnCvarChange | and also update OnConfigsExecuted
     //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
@@ -238,6 +312,24 @@ public OnPluginStart()
     HookConVarChange(g_hLadJOutstanding, OnCvarChange);
     HookConVarChange(g_hLadJUnreal, OnCvarChange);
     HookConVarChange(g_hLadJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hWHJImpressive, OnCvarChange);
+    HookConVarChange(g_hWHJExcellent, OnCvarChange);
+    HookConVarChange(g_hWHJOutstanding, OnCvarChange);
+    HookConVarChange(g_hWHJUnreal, OnCvarChange);
+    HookConVarChange(g_hWHJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hLDHJImpressive, OnCvarChange);
+    HookConVarChange(g_hLDHJExcellent, OnCvarChange);
+    HookConVarChange(g_hLDHJOutstanding, OnCvarChange);
+    HookConVarChange(g_hLDHJUnreal, OnCvarChange);
+    HookConVarChange(g_hLDHJGodlike, OnCvarChange);
+
+    HookConVarChange(g_hLBHJImpressive, OnCvarChange);
+    HookConVarChange(g_hLBHJExcellent, OnCvarChange);
+    HookConVarChange(g_hLBHJOutstanding, OnCvarChange);
+    HookConVarChange(g_hLBHJUnreal, OnCvarChange);
+    HookConVarChange(g_hLBHJGodlike, OnCvarChange);
     
     //Hooked'em
     HookEvent("player_spawn", OnPlayerSpawn);
@@ -288,6 +380,24 @@ public OnConfigsExecuted()
     g_faQualityDistances[JUMP_LADJ][OUTSTANDING] = GetConVarFloat(g_hLadJOutstanding);
     g_faQualityDistances[JUMP_LADJ][UNREAL] = GetConVarFloat(g_hLadJUnreal);
     g_faQualityDistances[JUMP_LADJ][GODLIKE] = GetConVarFloat(g_hLadJGodlike);
+
+    g_faQualityDistances[JUMP_WHJ][IMPRESSIVE] = GetConVarFloat(g_hWHJImpressive);
+    g_faQualityDistances[JUMP_WHJ][EXCELLENT] = GetConVarFloat(g_hWHJExcellent);
+    g_faQualityDistances[JUMP_WHJ][OUTSTANDING] = GetConVarFloat(g_hWHJOutstanding);
+    g_faQualityDistances[JUMP_WHJ][UNREAL] = GetConVarFloat(g_hWHJUnreal);
+    g_faQualityDistances[JUMP_WHJ][GODLIKE] = GetConVarFloat(g_hWHJGodlike);
+
+    g_faQualityDistances[JUMP_LDHJ][IMPRESSIVE] = GetConVarFloat(g_hLDHJImpressive);
+    g_faQualityDistances[JUMP_LDHJ][EXCELLENT] = GetConVarFloat(g_hLDHJExcellent);
+    g_faQualityDistances[JUMP_LDHJ][OUTSTANDING] = GetConVarFloat(g_hLDHJOutstanding);
+    g_faQualityDistances[JUMP_LDHJ][UNREAL] = GetConVarFloat(g_hLDHJUnreal);
+    g_faQualityDistances[JUMP_LDHJ][GODLIKE] = GetConVarFloat(g_hLDHJGodlike);
+
+    g_faQualityDistances[JUMP_LBHJ][IMPRESSIVE] = GetConVarFloat(g_hLBHJImpressive);
+    g_faQualityDistances[JUMP_LBHJ][EXCELLENT] = GetConVarFloat(g_hLBHJExcellent);
+    g_faQualityDistances[JUMP_LBHJ][OUTSTANDING] = GetConVarFloat(g_hLBHJOutstanding);
+    g_faQualityDistances[JUMP_LBHJ][UNREAL] = GetConVarFloat(g_hLBHJUnreal);
+    g_faQualityDistances[JUMP_LBHJ][GODLIKE] = GetConVarFloat(g_hLBHJGodlike);
 }
 
 public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewValue[])
@@ -330,10 +440,10 @@ public bool:InterruptJump(iClient)
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
-    g_baJumped[iClient] = false;
+    g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
-    g_baLadderJumped[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
+    g_iaJumpContext[iClient] = NONE;
 
     return true;
 }
@@ -384,7 +494,7 @@ public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroad
         return Plugin_Continue;
     new iId = GetEventInt(hEvent, "userid");
     new iClient = GetClientOfUserId(iId);
-    g_baJumped[iClient] = false;
+    g_iaJumped[iClient] = JUMP_NONE;
 
     return Plugin_Continue;
 }
@@ -513,7 +623,7 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
 {
     if(g_bEnabled && iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         if(IsPlayerAlive(iClient)) {
-            if(g_baJumped[iClient]) {  // if the player jumped before the touch occured
+            if(g_iaJumped[iClient]) {  // if the player jumped before the touch occured
                 g_baCanJump[iClient] = true;  // the player can jump again (needs reworking, since the player can be in air)
                 if(iTouched > 0)  // the player touched an entity (not the world)
                     InterruptJump(iClient);  // therefore we interrupt the jump
@@ -530,7 +640,7 @@ public OnClientDisconnect(iClient)
     SDKUnhook(iClient, SDKHook_StartTouch, SDKHook_StartTouch_Callback);
     g_iaButtons[iClient] = 0;
     g_baStats[iClient] = true;
-    g_baJumped[iClient] = false;
+    g_iaJumped[iClient] = JUMP_NONE;
     g_iaFrame[iClient] = 0;
     g_iaBhops[iClient] = 0;
     g_baCanJump[iClient] = true;
@@ -595,8 +705,10 @@ public AnnounceLastJump(iClient)
 
 public Action:StopBhopRecord(Handle:hTimer, any:iClient)
 {
-    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient))
+    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baCanBhop[iClient] = false;
+        g_iaJumpContext[iClient] = NONE;
+    }
 }
 
 public Action:AnnounceLastJumpDelayed(Handle:hTimer, any:iClient)
@@ -619,25 +731,16 @@ public RecordJump(iClient)
         g_faJumpCoord[iClient][2] = 0.0;
         g_faLandCoord[iClient][2] = 0.0;
         g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
+
         if(g_faDistance[iClient] >= MINIMUM_LJ_DISTANCE) {
-            if(g_iaBhops[iClient] == 0) {
-                if(g_baLadderJumped[iClient]) {
-                    g_iaJumpType[iClient] = JUMP_LADJ;
-                    g_baLadderJumped[iClient] = false;
-                }
-                else
-                    g_iaJumpType[iClient] = JUMP_LJ;
-            }
-            else if(g_iaBhops[iClient] == 1)
-                g_iaJumpType[iClient] = JUMP_BHJ;
-            else
-                g_iaJumpType[iClient] = JUMP_MBHJ;
+            g_iaJumpType[iClient] = g_iaJumped[iClient];
         }
         else
             g_iaJumpType[iClient] = JUMP_TOO_SHORT;
     }
-    else if(fDelta < 8.0) { // ladder jumps usually have a height difference of 1 to 7 units, so allow 8
-        if(g_baLadderJumped[iClient]) {
+    else if(fDelta < 10.0) { // ladder jumps usually have a height difference of 1 to 10 units (bigger is possible, up to 25 actually)
+        // needs better detection
+        if(g_iaJumped[iClient] == JUMP_LADJ) {
             g_faJumpCoord[iClient][2] = 0.0;
             g_faLandCoord[iClient][2] = 0.0;
             g_faDistance[iClient] = GetVectorDistance(g_faJumpCoord[iClient], g_faLandCoord[iClient]) + 32.0;
@@ -648,14 +751,18 @@ public RecordJump(iClient)
             }
             else
                 g_iaJumpType[iClient] = JUMP_TOO_SHORT;
-
-            g_baLadderJumped[iClient] = false; 
         }
         else
             g_iaJumpType[iClient] = JUMP_VERTICAL;
     }
-    else // the player probably didn't intend a longjump so the display will show the last valid jump
-        g_iaJumpType[iClient] = JUMP_INVALID;
+    else { 
+        g_iaJumpType[iClient] = JUMP_INVALID; // the player probably didn't intend a longjump so the display will show the last valid jump
+    }
+
+    if(fDelta < 20.0 && g_iaJumped[iClient] == JUMP_LADJ && g_iaJumpContext[iClient] == LADDER_UNKNOWN)
+        g_iaJumpContext[iClient] = LADDER_JUMPED;
+    if(g_iaJumpContext[iClient] == LADDER_UNKNOWN)
+        g_iaJumpContext[iClient] = LADDER_DROPPED;
 
     if(g_iaJumpType[iClient] > JUMP_NONE) {
         if(!g_bBunnyHopCancelsAnnouncer)
@@ -663,6 +770,29 @@ public RecordJump(iClient)
         else
             CreateTimer(BHOP_TIME + 0.05, AnnounceLastJumpDelayed, iClient, TIMER_FLAG_NO_MAPCHANGE);  // might require 2 * BHOP_TIME
     }
+}
+
+public GetPreJumpType(iClient)
+{
+    if(g_iaBhops[iClient] == 1) {
+        if(g_iaJumpContext[iClient] == LADDER_DROPPED) {
+            g_iaJumped[iClient] = JUMP_LDHJ;
+        } else
+        if(g_iaJumpContext[iClient] == LADDER_JUMPED) {
+            g_iaJumped[iClient] = JUMP_LBHJ;
+        } else
+        if(g_iaJumped[iClient] == JUMP_LJ) {
+            g_iaJumped[iClient] = JUMP_BHJ;
+        } else
+        if(g_iaJumped[iClient] == JUMP_NONE && g_iaJumpContext[iClient] == DROPPED) {
+            g_iaJumped[iClient] = JUMP_WHJ;
+        }
+        else {
+            g_iaJumped[iClient] = JUMP_BHJ
+        }
+    }
+    else
+        g_iaJumped[iClient] = JUMP_MBHJ;
 }
 
 public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon) //OnRunCmd
@@ -710,7 +840,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     }
     
     // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
-    if(g_baJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
+    if(g_iaJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
         InterruptJump(iClient);
     }
     if(GetEntityMoveType(iClient) == MOVETYPE_LADDER) {
@@ -724,24 +854,33 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         if(g_iaFlag[iClient] == IN_AIR) {
             g_iaFlag[iClient] = JUST_LANDED;
             g_baCanBhop[iClient] = true;
+            if(g_iaJumped[iClient] > JUMP_NONE) {  // update the context for the next jump
+                if(g_iaJumped[iClient] == JUMP_LADJ) {
+                    g_iaJumpContext[iClient] = LADDER_UNKNOWN;
+                }
+                else
+                    g_iaJumpContext[iClient] = JUMPED;
+            }
+            else
+                g_iaJumpContext[iClient] = DROPPED;
             CreateTimer(BHOP_TIME, StopBhopRecord, iClient, TIMER_FLAG_NO_MAPCHANGE);
         }
-        else if(g_iaFlag[iClient] == JUST_LANDED)
+        else if(g_iaFlag[iClient] != ON_LAND)
             g_iaFlag[iClient] = ON_LAND;
 
-        if(iButtons & IN_JUMP) {
-            if(!g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings (because runcmd runs on every frame and it can                                                                                                       // detect multiple instances of the same jump)
+
+        if(iButtons & IN_JUMP) {  // if the player is holding +jump
+            if(!g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings
                 if(g_baAntiJump[iClient]) {
-                    if(g_baJumped[iClient]) {   // player jumped during the same frame he landed after jumping
+                    if(g_iaJumped[iClient] > JUMP_NONE) {   // player jumped during the same frame he landed after jumping
                         g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
                         RecordJump(iClient);
-                        g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
                         GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                         g_iaBhops[iClient]++;            // counts the number of normal bhops
                         g_iaFrame[iClient] = 0;            // used to avoid multiple recordings of a jump
                         g_baJustHopped[iClient] = true;    // the player bhopped, used to avoid multiple recordings
-                        g_baJumped[iClient] = true;        // the player jumped (landing will set this to false)
-                        g_baCanJump[iClient] = false;    // this variable looks like the opposite of g_baJumped but it is needed to avoid multiple recordings of both perf and norm bhops
+                        GetPreJumpType(iClient);
+                        g_baCanJump[iClient] = false;    // this variable looks like the opposite of g_iaJumped but it is needed to avoid multiple recordings of both perf and norm bhops
                     }
                     else {
                         if(g_baCanJump[iClient]) {
@@ -749,14 +888,15 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                             if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
                                 g_iaBhops[iClient]++;       // update the bunnyhop counter
                                 g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
+                                GetPreJumpType(iClient);
                             }
                             else {
                                 g_iaBhops[iClient] = 0;  // reset the bunnyhop counter
                                 g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
+                                g_iaJumped[iClient] = JUMP_LJ;
                             }
                             g_iaFrame[iClient] = 0;
                             g_baJustHopped[iClient] = true;
-                            g_baJumped[iClient] = true;
                             g_baCanJump[iClient] = false;
                         }
                     }
@@ -766,23 +906,23 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                         g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
                         RecordJump(iClient);
                         GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                        g_iaJumped[iClient] = JUMP_NONE;
                     }
-                    g_baJumped[iClient] = false;
                 }
             }
         }
         else {    //the player didn't +jump this time (so we can assume a -jump was made before or even now)
             g_baCanJump[iClient] = true;
-            if(g_baJumped[iClient]) {
-                g_baJumped[iClient] = false;
+            if(g_iaJumped[iClient]) {
                 if(!g_baJustHopped[iClient]) {        // player jumped before
                     g_baAnnounceLastJump[iClient] = true;
                     RecordJump(iClient);
-                    g_baLadderJumped[iClient] = false; // just in case this was a ladder jump
+                    g_iaJumped[iClient] = JUMP_NONE;
                 }
             }
             else {
                 if(g_iaFlag[iClient] == JUST_LANDED) {
+                    g_iaJumped[iClient] = JUMP_NONE;
                     g_baAnnounceLastJump[iClient] = false;
                 }
             }
@@ -793,15 +933,14 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
             g_iaFlag[iClient] = JUST_AIRED;
         else if(g_iaFlag[iClient] == JUST_AIRED)
             g_iaFlag[iClient] = IN_AIR;
-        if(!g_baJumped[iClient] && g_iaFlag[iClient] == JUST_AIRED)
+        if(!g_iaJumped[iClient] && g_iaFlag[iClient] == JUST_AIRED)
             g_iaBhops[iClient] = 0;
         if(GetEntityMoveType(iClient) == MOVETYPE_WALK)
             if(g_baOnLadder[iClient]) { // the player just detached from the ladder
                 GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                 g_baOnLadder[iClient] = false;
-                g_baLadderJumped[iClient] = true; // this might not be 100% true but it works
                 g_iaBhops[iClient] = 0;
-                g_baJumped[iClient] = true;
+                g_iaJumped[iClient] = JUMP_LADJ;
             }
     }
 
