@@ -7,7 +7,7 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.4"
+#define PLUGIN_VERSION              "0.2.5"
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
@@ -678,6 +678,9 @@ public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroad
 
 public AnnounceLastJump(iClient)
 {
+    if(!g_baStats[iClient])
+        return Plugin_Continue;
+
     if(g_iaJumpType[iClient] > JUMP_NONE) {
         new iType = g_iaJumpType[iClient];
 
