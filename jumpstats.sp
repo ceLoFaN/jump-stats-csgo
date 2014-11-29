@@ -1,4 +1,4 @@
-/* Special thanks to DocG and Delusional for testing */
+/* Special thanks to DocG, Delusional and wen for testing */
 
 #include <sourcemod>
 #include <sdktools>
@@ -11,6 +11,7 @@
 #define STATS_ENABLED               "1"
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
+#define MINIMUM_ANNOUNCE_TIER       "Outstanding"
 
 #define BHOP_TIME                   0.1
 
@@ -121,6 +122,7 @@ public Plugin:myinfo =
 new Handle:g_hEnabled = INVALID_HANDLE;
 new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
+new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
 
 new Handle:g_hLJImpressive = INVALID_HANDLE;
 new Handle:g_hLJExcellent = INVALID_HANDLE;
@@ -167,6 +169,7 @@ new Handle:g_hLBHJGodlike = INVALID_HANDLE;
 new bool:g_bEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
+new g_iMinimumAnnounceTier;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
 /*-----------------------------------------------------*/
@@ -241,6 +244,7 @@ public OnPluginStart()
     g_hEnabled = CreateConVar("sm_jumpstats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("sm_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
+    g_hMinimumAnnounceTier = CreateConVar("sm_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
 
     g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
@@ -288,6 +292,7 @@ public OnPluginStart()
     HookConVarChange(g_hEnabled, OnCvarChange);
     HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
     HookConVarChange(g_hBunnyHopCancelsAnnouncer, OnCvarChange);
+    HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -356,6 +361,9 @@ public OnConfigsExecuted()
     g_bEnabled = GetConVarBool(g_hEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
     g_bBunnyHopCancelsAnnouncer = GetConVarBool(g_hBunnyHopCancelsAnnouncer);
+    new String:sTier[32]
+    GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
+    g_iMinimumAnnounceTier = GetQualityIndex(sTier);
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -411,6 +419,11 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
     if(StrEqual("sm_bunnyhop_cancels_announcer", sConVarName))
         g_bBunnyHopCancelsAnnouncer = GetConVarBool(hConVar); else
+    if(StrEqual("sm_minimum_announce_tier", sConVarName)) {
+        new String:sTier[32]
+        GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
+        g_iMinimumAnnounceTier = GetQualityIndex(sTier);
+    } else
 
     if(StrEqual("sm_jumpstats_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
@@ -469,7 +482,7 @@ public OnMapEnd() {
     }
 
     if(!g_bEnabled)
-        return ;
+        return;
 }
 
 public Action:OnRoundStart(Handle:hEvent, const String:sName[], bool:dontBroadcast)
@@ -676,10 +689,17 @@ public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroad
     return Plugin_Continue;
 }
 
+public GetQualityIndex(const String:sQuality[])
+{
+    new iIndex;
+    for(iIndex = 0; strcmp(sQuality, g_saJumpQualities[iIndex], false); iIndex++) {}
+    return iIndex;
+}
+
 public AnnounceLastJump(iClient)
 {
     if(!g_baStats[iClient])
-        return Plugin_Continue;
+        return;
 
     if(g_iaJumpType[iClient] > JUMP_NONE) {
         new iType = g_iaJumpType[iClient];
@@ -690,7 +710,7 @@ public AnnounceLastJump(iClient)
                 break;
         }
 
-        if(iQuality > -1) {
+        if(iQuality > -1 && iQuality >= g_iMinimumAnnounceTier) {
             decl String:sNickname[MAX_NAME_LENGTH];
             GetClientName(iClient, sNickname, sizeof(sNickname));
 
