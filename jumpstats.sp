@@ -735,12 +735,14 @@ public AnnounceLastJump(iClient)
                 Format(sArticle, sizeof(sArticle), "an");
 
             if(g_iAnnounceToTeams) 
-                for(new iId = 0; iId < MaxClients; iId++) {
-                    new iTeam = GetClientTeam(iId);
-                    if(g_iAnnounceToTeams == 4 || 
-                       (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3)))
-                    PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
-                        sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                for(new iId = 1; iId < MaxClients; iId++) {
+                    if(IsClientInGame(iId)) {
+                        new iTeam = GetClientTeam(iId);
+                        if(g_iAnnounceToTeams == 4 || 
+                           (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3)))
+                        PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
+                            sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                    }
                 }
         }
     }
