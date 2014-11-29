@@ -12,6 +12,7 @@
 #define DISPLAY_DELAY_ROUNDSTART    "3"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 #define MINIMUM_ANNOUNCE_TIER       "Outstanding"
+#define ANNOUNCE_TO_TEAM            "4"
 
 #define BHOP_TIME                   0.1
 
@@ -109,6 +110,12 @@
 #define MOUSE_LEFT                  (1 << 0)
 #define MOUSE_RIGHT                 (1 << 1)
 
+// In-game Team Defines
+#define JOINTEAM_RND       0
+#define JOINTEAM_SPEC      1    
+#define JOINTEAM_T         2
+#define JOINTEAM_CT        3
+
 public Plugin:myinfo =
 {
     name = "Jump Stats",
@@ -123,6 +130,7 @@ new Handle:g_hEnabled = INVALID_HANDLE;
 new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
 new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
+new Handle:g_hAnnounceToTeams = INVALID_HANDLE;
 
 new Handle:g_hLJImpressive = INVALID_HANDLE;
 new Handle:g_hLJExcellent = INVALID_HANDLE;
@@ -170,6 +178,7 @@ new bool:g_bEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
+new g_iAnnounceToTeams;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
 /*-----------------------------------------------------*/
@@ -240,11 +249,12 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 public OnPluginStart()
 {
     //ConVars here
-    CreateConVar("hidenseek_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
+    CreateConVar("jumpstats_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
     g_hEnabled = CreateConVar("sm_jumpstats", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("sm_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("sm_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
+    g_hAnnounceToTeams = CreateConVar("sm_announce_to_teams", ANNOUNCE_TO_TEAM, "The teams that can see jump announcements (0=NONE, 1=T, 2=CT, 3=T&CT, 4=ALL).", _, true, 0.0);
 
     g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
@@ -293,6 +303,7 @@ public OnPluginStart()
     HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
     HookConVarChange(g_hBunnyHopCancelsAnnouncer, OnCvarChange);
     HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
+    HookConVarChange(g_hAnnounceToTeams, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -364,6 +375,7 @@ public OnConfigsExecuted()
     new String:sTier[32]
     GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
     g_iMinimumAnnounceTier = GetQualityIndex(sTier);
+    g_iAnnounceToTeams = GetConVarInt(g_hAnnounceToTeams);
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -421,9 +433,11 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
         g_bBunnyHopCancelsAnnouncer = GetConVarBool(hConVar); else
     if(StrEqual("sm_minimum_announce_tier", sConVarName)) {
         new String:sTier[32]
-        GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
+        GetConVarString(hConVar, sTier, sizeof(sTier));
         g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     } else
+    if(StrEqual("sm_announce_to_teams", sConVarName))
+        g_iAnnounceToTeams = GetConVarInt(hConVar); else
 
     if(StrEqual("sm_jumpstats_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
@@ -689,7 +703,7 @@ public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroad
     return Plugin_Continue;
 }
 
-public GetQualityIndex(const String:sQuality[])
+public GetQualityIndex(String:sQuality[])
 {
     new iIndex;
     for(iIndex = 0; strcmp(sQuality, g_saJumpQualities[iIndex], false); iIndex++) {}
@@ -720,8 +734,14 @@ public AnnounceLastJump(iClient)
             if(StrContains("aeiouh", sFirstLetter, false))
                 Format(sArticle, sizeof(sArticle), "an");
 
-            PrintToChatAll("[JS] %s did %s %s %.3f units %s.", 
-                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+            if(g_iAnnounceToTeams) 
+                for(new iId = 0; iId < MaxClients; iId++) {
+                    new iTeam = GetClientTeam(iId);
+                    if(g_iAnnounceToTeams == 4 || 
+                       (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3)))
+                    PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
+                        sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                }
         }
     }
 }
