@@ -7,11 +7,11 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.5"
+#define PLUGIN_VERSION              "0.2.8"
 #define STATS_ENABLED               "1"
-#define DISPLAY_DELAY_ROUNDSTART    "3"
+#define DISPLAY_DELAY_ROUNDSTART    "0"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
-#define MINIMUM_ANNOUNCE_TIER       "Outstanding"
+#define MINIMUM_ANNOUNCE_TIER       "Impressive"
 #define ANNOUNCE_TO_TEAM            "4"
 
 #define BHOP_TIME                   0.1
@@ -53,11 +53,11 @@
 #define GODLIKE                     4
 
 #define MINIMUM_LJ_DISTANCE         200.0
-#define LJ_IMPRESSIVE               "230.0"
-#define LJ_EXCELLENT                "235.0"
+#define LJ_IMPRESSIVE               "228.0"
+#define LJ_EXCELLENT                "234.0"
 #define LJ_OUTSTANDING              "240.0"
-#define LJ_UNREAL                   "245.0"
-#define LJ_GODLIKE                  "250.0"
+#define LJ_UNREAL                   "246.0"
+#define LJ_GODLIKE                  "252.0"
 
 #define MINIMUM_BHJ_DISTANCE        200.0
 #define BHJ_IMPRESSIVE              "248.0"
@@ -81,18 +81,18 @@
 #define LADJ_GODLIKE                "182.0"
 
 #define MINIMUM_WHJ_DISTANCE        200.0
-#define WHJ_IMPRESSIVE              "248.0"
-#define WHJ_EXCELLENT               "256.0"
-#define WHJ_OUTSTANDING             "262.0"
-#define WHJ_UNREAL                  "270.0"
-#define WHJ_GODLIKE                 "278.0"
+#define WHJ_IMPRESSIVE              "240.0"
+#define WHJ_EXCELLENT               "248.0"
+#define WHJ_OUTSTANDING             "254.0"
+#define WHJ_UNREAL                  "262.0"
+#define WHJ_GODLIKE                 "270.0"
 
 #define MINIMUM_LDHJ_DISTANCE        200.0
-#define LDHJ_IMPRESSIVE              "248.0"
-#define LDHJ_EXCELLENT               "256.0"
-#define LDHJ_OUTSTANDING             "262.0"
-#define LDHJ_UNREAL                  "270.0"
-#define LDHJ_GODLIKE                 "278.0"
+#define LDHJ_IMPRESSIVE              "240.0"
+#define LDHJ_EXCELLENT               "248.0"
+#define LDHJ_OUTSTANDING             "254.0"
+#define LDHJ_UNREAL                  "262.0"
+#define LDHJ_GODLIKE                 "270.0"
 
 #define MINIMUM_LBHJ_DISTANCE        200.0
 #define LBHJ_IMPRESSIVE              "236.0"
