@@ -522,6 +522,7 @@ public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroad
     new iId = GetEventInt(hEvent, "userid");
     new iClient = GetClientOfUserId(iId);
     g_iaJumped[iClient] = JUMP_NONE;
+    g_baOnLadder[iClient] = false;
 
     return Plugin_Continue;
 }
@@ -888,6 +889,8 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     if(g_iaJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
         InterruptJump(iClient);
     }
+
+    // Detect if the player is attached to a ladder
     if(GetEntityMoveType(iClient) == MOVETYPE_LADDER) {
         if(!g_baOnLadder[iClient]) {
             g_baOnLadder[iClient] = true;
@@ -896,10 +899,12 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
 
     // The player is on the ground
     if(GetEntityFlags(iClient) & FL_ONGROUND) {
-        if(g_iaFlag[iClient] == IN_AIR) {
+        if(g_iaFlag[iClient] == IN_AIR || g_iaFlag[iClient] == JUST_AIRED) {
             g_iaFlag[iClient] = JUST_LANDED;
             g_baCanBhop[iClient] = true;
-            if(g_iaJumped[iClient] > JUMP_NONE) {  // update the context for the next jump
+
+            // Update the context for the next jump (landing)
+            if(g_iaJumped[iClient] > JUMP_NONE) {  
                 if(g_iaJumped[iClient] == JUMP_LADJ) {
                     g_iaJumpContext[iClient] = LADDER_UNKNOWN;
                 }
@@ -913,14 +918,18 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         else if(g_iaFlag[iClient] != ON_LAND)
             g_iaFlag[iClient] = ON_LAND;
 
+        if(g_iaFlag[iClient] == JUST_LANDED) {
+            if(g_baOnLadder[iClient])
+                g_baOnLadder[iClient] = false;
+        }
 
-        if(iButtons & IN_JUMP) {  // if the player is holding +jump
+        if(iButtons & IN_JUMP) {  // if the player is pressing the +jump button
             if(!g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings
                 if(g_baAntiJump[iClient]) {
-                    if(g_iaJumped[iClient] > JUMP_NONE) {   // player jumped during the same frame he landed after jumping
+                    if(g_iaJumped[iClient] > JUMP_NONE) {   // if the player jumped during the same frame he landed
                         g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
-                        RecordJump(iClient);
-                        GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                        RecordJump(iClient);    // record the jump
+                        GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);    // get the player's coordinates for the next (hop) jump
                         g_iaBhops[iClient]++;            // counts the number of normal bhops
                         g_iaFrame[iClient] = 0;            // used to avoid multiple recordings of a jump
                         g_baJustHopped[iClient] = true;    // the player bhopped, used to avoid multiple recordings
@@ -982,12 +991,16 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
             g_iaFlag[iClient] = IN_AIR;
         if(!g_iaJumped[iClient] && g_iaFlag[iClient] == JUST_AIRED)
             g_iaBhops[iClient] = 0;
+
         if(GetEntityMoveType(iClient) == MOVETYPE_WALK)
             if(g_baOnLadder[iClient]) { // the player just detached from the ladder
-                GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                 g_baOnLadder[iClient] = false;
                 g_iaBhops[iClient] = 0;
-                g_iaJumped[iClient] = JUMP_LADJ;
+                if(g_iaFlag[iClient] >= IN_AIR) { // if the player didn't detach from the ladder directly to the ground
+                    // set the conditions for a ladder jump
+                    GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                    g_iaJumped[iClient] = JUMP_LADJ;
+                }
             }
     }
 
