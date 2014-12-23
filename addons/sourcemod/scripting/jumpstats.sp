@@ -655,7 +655,7 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
                 if(iTouched > 0)  // the player touched an entity (not the world)
                     InterruptJump(iClient);  // therefore we interrupt the jump
                 else if(iTouched == 0)   // if the player touched the world
-                    if(!(GetEntityFlags(iClient) & FL_ONGROUND))  // and it's currently standing on the ground
+                    if(!(GetEntityFlags(iClient) & FL_ONGROUND))  // and it's currently not standing on the ground
                         InterruptJump(iClient);  // interrupt the jump recording
             }
         }
@@ -948,9 +948,11 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                 }
                 else {  // player is on ground and holding +jump (space)
                     if(g_iaFlag[iClient] == JUST_LANDED) {  // if the player just landed then record this jump
-                        g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
-                        RecordJump(iClient);
-                        GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                        if(g_iaJumped[iClient] > JUMP_NONE) {
+                            g_baAnnounceLastJump[iClient] = true;  // set the jump to be announced
+                            RecordJump(iClient);
+                            GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
+                        }
                         g_iaJumped[iClient] = JUMP_NONE;
                     }
                 }
