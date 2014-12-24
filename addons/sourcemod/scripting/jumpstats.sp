@@ -12,7 +12,8 @@
 #define DISPLAY_DELAY_ROUNDSTART    "0"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 #define MINIMUM_ANNOUNCE_TIER       "Impressive"
-#define ANNOUNCE_TO_TEAM            "4"
+#define ANNOUNCE_TO_TEAMS           "4"
+#define RECORD_FOR_TEAMS            "3"
 
 #define BHOP_TIME                   0.1
 
@@ -131,6 +132,7 @@ new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
 new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
 new Handle:g_hAnnounceToTeams = INVALID_HANDLE;
+new Handle:g_hRecordForTeams = INVALID_HANDLE;
 
 new Handle:g_hLJImpressive = INVALID_HANDLE;
 new Handle:g_hLJExcellent = INVALID_HANDLE;
@@ -179,6 +181,7 @@ new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
 new g_iAnnounceToTeams;
+new g_iRecordForTeams;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
 /*-----------------------------------------------------*/
@@ -254,7 +257,8 @@ public OnPluginStart()
     g_hDisplayDelayRoundstart = CreateConVar("sm_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("sm_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("sm_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
-    g_hAnnounceToTeams = CreateConVar("sm_announce_to_teams", ANNOUNCE_TO_TEAM, "The teams that can see jump announcements (0=NONE, 1=T, 2=CT, 3=T&CT, 4=ALL).", _, true, 0.0);
+    g_hAnnounceToTeams = CreateConVar("sm_announce_to_teams", ANNOUNCE_TO_TEAMS, "The teams that can see jump announcements (0=NONE, 1=T, 2=CT, 3=T&CT, 4=ALL).", _, true, 0.0);
+    g_hRecordForTeams = CreateConVar("sm_record_for_teams", RECORD_FOR_TEAMS, "The teams to record jumps for. (0=NONE, 1=T, 2=CT, 3=T&CT)", _, true, 0.0)
 
     g_hLJImpressive = CreateConVar("sm_jumpstats_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("sm_jumpstats_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
@@ -304,6 +308,7 @@ public OnPluginStart()
     HookConVarChange(g_hBunnyHopCancelsAnnouncer, OnCvarChange);
     HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
     HookConVarChange(g_hAnnounceToTeams, OnCvarChange);
+    HookConVarChange(g_hRecordForTeams, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -376,6 +381,7 @@ public OnConfigsExecuted()
     GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
     g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     g_iAnnounceToTeams = GetConVarInt(g_hAnnounceToTeams);
+    g_iRecordForTeams = GetConVarInt(g_hRecordForTeams);
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -438,6 +444,8 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     } else
     if(StrEqual("sm_announce_to_teams", sConVarName))
         g_iAnnounceToTeams = GetConVarInt(hConVar); else
+    if(StrEqual("sm_record_for_teams", sConVarName))
+        g_iRecordForTeams = GetConVarInt(hConVar); else
 
     if(StrEqual("sm_jumpstats_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
@@ -549,17 +557,20 @@ public Action:StatsDisplay(Handle:hTimer)
 
                     Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
 
-                    if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
-                        if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
-                            g_faLastDistance[iClient] = g_faDistance[iClient];
-                            g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
-                        }
+                    new iTeam = GetClientTeam(iClient);
+                    if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
+                        if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
+                            if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
+                                g_faLastDistance[iClient] = g_faDistance[iClient];
+                                g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
+                            }
 
-                        Format(sOutput, sizeof(sOutput),
-                        "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faLastDistance[iClient], g_saJumpTypes[g_iaLastJumpType[iClient]]);
-                    }
-                    else {
-                        Format(sOutput, sizeof(sOutput), "%s  Last Jump: Vertical\n", sOutput);
+                            Format(sOutput, sizeof(sOutput),
+                            "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faLastDistance[iClient], g_saJumpTypes[g_iaLastJumpType[iClient]]);
+                        }
+                        else {
+                            Format(sOutput, sizeof(sOutput), "%s  Last Jump: Vertical\n", sOutput);
+                        }
                     }
 
                     Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i", sOutput, g_iaBhops[iClient]);
@@ -767,6 +778,8 @@ public RecordJump(iClient)
 {
     GetClientAbsOrigin(iClient, g_faLandCoord[iClient]);
     new Float:fDelta;
+    new iTeam = GetClientTeam(iClient);
+    
     if((g_faLandCoord[iClient][2] >= 0.0 && g_faJumpCoord[iClient][2] >= 0.0) || 
     (g_faLandCoord[iClient][2] <= 0.0 && g_faJumpCoord[iClient][2] <= 0.0))
         fDelta = FloatAbs(g_faLandCoord[iClient][2] - g_faJumpCoord[iClient][2]);
@@ -805,16 +818,19 @@ public RecordJump(iClient)
         g_iaJumpType[iClient] = JUMP_INVALID; // the player probably didn't intend a longjump so the display will show the last valid jump
     }
 
+    // this needs better detection
     if(fDelta < 20.0 && g_iaJumped[iClient] == JUMP_LADJ && g_iaJumpContext[iClient] == LADDER_UNKNOWN)
         g_iaJumpContext[iClient] = LADDER_JUMPED;
     if(g_iaJumpContext[iClient] == LADDER_UNKNOWN)
         g_iaJumpContext[iClient] = LADDER_DROPPED;
 
-    if(g_iaJumpType[iClient] > JUMP_NONE) {
-        if(!g_bBunnyHopCancelsAnnouncer)
-            AnnounceLastJump(iClient);
-        else
-            CreateTimer(BHOP_TIME + 0.05, AnnounceLastJumpDelayed, iClient, TIMER_FLAG_NO_MAPCHANGE);  // might require 2 * BHOP_TIME
+    if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) { // this can be moved to top after I get ladder detection right
+        if(g_iaJumpType[iClient] > JUMP_NONE) {
+            if(!g_bBunnyHopCancelsAnnouncer)
+                AnnounceLastJump(iClient);
+            else
+                CreateTimer(BHOP_TIME + 0.05, AnnounceLastJumpDelayed, iClient, TIMER_FLAG_NO_MAPCHANGE);  // might require 2 * BHOP_TIME
+        }
     }
 }
 
