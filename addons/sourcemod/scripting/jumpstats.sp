@@ -179,7 +179,7 @@ new Handle:g_hLBHJUnreal = INVALID_HANDLE;
 new Handle:g_hLBHJGodlike = INVALID_HANDLE;
 
 new bool:g_bEnabled;
-new bool:g_iDisplayEnabled;
+new g_iDisplayEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
