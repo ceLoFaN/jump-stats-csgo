@@ -9,7 +9,7 @@
 // ConVar Defines
 #define PLUGIN_VERSION              "0.2.9"
 #define STATS_ENABLED               "1"
-#define DISPLAY_ENABLED             "1"
+#define DISPLAY_ENABLED             "3"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 #define MINIMUM_ANNOUNCE_TIER       "Impressive"
@@ -179,7 +179,7 @@ new Handle:g_hLBHJUnreal = INVALID_HANDLE;
 new Handle:g_hLBHJGodlike = INVALID_HANDLE;
 
 new bool:g_bEnabled;
-new bool:g_bDisplayEnabled;
+new bool:g_iDisplayEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
@@ -257,7 +257,7 @@ public OnPluginStart()
     //ConVars here
     CreateConVar("jumpstats_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
     g_hEnabled = CreateConVar("js_enabled", STATS_ENABLED, "Turns the jumpstats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
-    g_hDisplayEnabled = CreateConVar("js_display_enabled", DISPLAY_ENABLED, "Turns the jumpstats display On/Off (0=OFF, 1=ON)", _, true, 0.0, true, 1.0)
+    g_hDisplayEnabled = CreateConVar("js_display_enabled", DISPLAY_ENABLED, "Turns the display On/Off by the player's state (0=OFF, 1=ALIVE, 2=DEAD, 3=ANY)", _, true, 0.0, true, 1.0)
     g_hDisplayDelayRoundstart = CreateConVar("js_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("js_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("js_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
@@ -380,7 +380,7 @@ public OnPluginStart()
 public OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
-    g_bDisplayEnabled = GetConVarBool(g_hDisplayEnabled);
+    g_iDisplayEnabled = GetConVarInt(g_hDisplayEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
     g_bBunnyHopCancelsAnnouncer = GetConVarBool(g_hBunnyHopCancelsAnnouncer);
     new String:sTier[32]
@@ -557,38 +557,40 @@ public Action:ShowDisplay(Handle:hTimer)
 
 public Action:StatsDisplay(Handle:hTimer)
 {
-    if(g_bEnabled && g_bDisplayEnabled) {
+    if(g_bEnabled && g_iDisplayEnabled) {
         for(new iClient = 1; iClient <= MaxClients; iClient++) {
             if(IsClientInGame(iClient) && g_baStats[iClient]) {
                 if(IsPlayerAlive(iClient)) {
-                    decl String:sOutput[128];
+                    if(g_iDisplayEnabled == 3 || g_iDisplayEnabled == 1) {
+                        decl String:sOutput[128];
 
-                    Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
+                        Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
 
-                    new iTeam = GetClientTeam(iClient);
-                    if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
-                        if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
-                            if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
-                                g_faLastDistance[iClient] = g_faDistance[iClient];
-                                g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
+                        new iTeam = GetClientTeam(iClient);
+                        if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
+                            if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
+                                if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
+                                    g_faLastDistance[iClient] = g_faDistance[iClient];
+                                    g_iaLastJumpType[iClient] = g_iaJumpType[iClient];
+                                }
+
+                                Format(sOutput, sizeof(sOutput),
+                                "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faLastDistance[iClient], g_saJumpTypes[g_iaLastJumpType[iClient]]);
                             }
+                            else {
+                                Format(sOutput, sizeof(sOutput), "%s  Last Jump: Vertical\n", sOutput);
+                            }
+                        }
 
-                            Format(sOutput, sizeof(sOutput),
-                            "%s  Last Jump: %.1f units [%s]\n", sOutput, g_faLastDistance[iClient], g_saJumpTypes[g_iaLastJumpType[iClient]]);
-                        }
-                        else {
-                            Format(sOutput, sizeof(sOutput), "%s  Last Jump: Vertical\n", sOutput);
-                        }
+                        Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i", sOutput, g_iaBhops[iClient]);
+                        // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
+                        //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
+                        //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
+                        PrintHintText(iClient, sOutput);
                     }
-
-                    Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i", sOutput, g_iaBhops[iClient]);
-                    // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
-                    //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
-                    //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
-                    PrintHintText(iClient, sOutput);
                 }
                 else {
-                    if(IsClientObserver(iClient)) {
+                    if(IsClientObserver(iClient) && (g_iDisplayEnabled >= 2)) {
                         new iSpecMode = GetEntProp(iClient, Prop_Send, "m_iObserverMode");
                         if(iSpecMode == SPECMODE_FIRSTPERSON || iSpecMode == SPECMODE_3RDPERSON) {
                             new iSpectatedClient = GetEntPropEnt(iClient, Prop_Send, "m_hObserverTarget");
