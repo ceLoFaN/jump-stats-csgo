@@ -740,11 +740,11 @@ public AnnounceLastJump(iClient)
             decl String:sNickname[MAX_NAME_LENGTH];
             GetClientName(iClient, sNickname, sizeof(sNickname));
 
-            decl String:sArticle[3] = "a";
-            decl String:sFirstLetter[2];
-            Format(sFirstLetter, sizeof(sFirstLetter), "%c", g_saPrettyJumpTypes[iType][0]);
-            if(StrContains("aeiouh", sFirstLetter, false))
+            decl String:sArticle[3];
+            if(FindCharInString("AEIOUaeiou", g_saJumpQualities[iQuality][0]) != -1)
                 Format(sArticle, sizeof(sArticle), "an");
+            else
+                Format(sArticle, sizeof(sArticle), "a");
 
             if(g_iAnnounceToTeams) 
                 for(new iId = 1; iId < MaxClients; iId++) {
