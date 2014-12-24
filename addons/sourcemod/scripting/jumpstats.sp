@@ -9,6 +9,7 @@
 // ConVar Defines
 #define PLUGIN_VERSION              "0.2.9"
 #define STATS_ENABLED               "1"
+#define DISPLAY_ENABLED             "1"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
 #define BUNNY_HOP_CANCELS_ANNOUNCER "1"
 #define MINIMUM_ANNOUNCE_TIER       "Impressive"
@@ -128,6 +129,7 @@ public Plugin:myinfo =
 
 /*\----ConVars----------------------------------------\*/
 new Handle:g_hEnabled = INVALID_HANDLE;
+new Handle:g_hDisplayEnabled = INVALID_HANDLE;
 new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
 new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
 new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
@@ -177,6 +179,7 @@ new Handle:g_hLBHJUnreal = INVALID_HANDLE;
 new Handle:g_hLBHJGodlike = INVALID_HANDLE;
 
 new bool:g_bEnabled;
+new bool:g_bDisplayEnabled;
 new Float:g_fDisplayDelayRoundstart;
 new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
@@ -253,7 +256,8 @@ public OnPluginStart()
 {
     //ConVars here
     CreateConVar("jumpstats_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
-    g_hEnabled = CreateConVar("js_enabled", STATS_ENABLED, "Turns the jump stats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
+    g_hEnabled = CreateConVar("js_enabled", STATS_ENABLED, "Turns the jumpstats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
+    g_hDisplayEnabled = CreateConVar("js_display_enabled", DISPLAY_ENABLED, "Turns the jumpstats display On/Off (0=OFF, 1=ON)", _, true, 0.0, true, 1.0)
     g_hDisplayDelayRoundstart = CreateConVar("js_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("js_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("js_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
@@ -304,6 +308,7 @@ public OnPluginStart()
     // Remember to add HOOKS to OnCvarChange | and also update OnConfigsExecuted
     //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
+    HookConVarChange(g_hDisplayEnabled, OnCvarChange);
     HookConVarChange(g_hDisplayDelayRoundstart, OnCvarChange);
     HookConVarChange(g_hBunnyHopCancelsAnnouncer, OnCvarChange);
     HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
@@ -375,6 +380,7 @@ public OnPluginStart()
 public OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
+    g_bDisplayEnabled = GetConVarBool(g_hDisplayEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
     g_bBunnyHopCancelsAnnouncer = GetConVarBool(g_hBunnyHopCancelsAnnouncer);
     new String:sTier[32]
@@ -432,6 +438,8 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     GetConVarName(hConVar, sConVarName, sizeof(sConVarName));
 
     if(StrEqual("js_enabled", sConVarName))
+        g_bEnabled = GetConVarBool(hConVar); else
+    if(StrEqual("js_display_enabled", sConVarName))
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("js_display_delay_roundstart", sConVarName))
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
@@ -549,7 +557,7 @@ public Action:ShowDisplay(Handle:hTimer)
 
 public Action:StatsDisplay(Handle:hTimer)
 {
-    if(g_bEnabled) {
+    if(g_bEnabled && g_bDisplayEnabled) {
         for(new iClient = 1; iClient <= MaxClients; iClient++) {
             if(IsClientInGame(iClient) && g_baStats[iClient]) {
                 if(IsPlayerAlive(iClient)) {
