@@ -7,6 +7,9 @@
 #include <cstrike>
 #include <clientprefs>
 
+// Change DISABLE_SOUNDS to true in order to disable the announcer sounds and prevent them from downloading to players
+new bool:DISABLE_SOUNDS = false;
+
 // ConVar Defines
 #define PLUGIN_VERSION              "0.3.0"
 #define STATS_ENABLED               "1"
@@ -278,7 +281,8 @@ public OnPluginStart()
     g_hMinimumAnnounceTier = CreateConVar("js_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
     g_hAnnounceToTeams = CreateConVar("js_announce_to_teams", ANNOUNCE_TO_TEAMS, "The teams that can see jump announcements (0=NONE, 1=T, 2=CT, 3=T&CT, 4=ALL).", _, true, 0.0);
     g_hRecordForTeams = CreateConVar("js_record_for_teams", RECORD_FOR_TEAMS, "The teams to record jumps for (0=NONE, 1=T, 2=CT, 3=T&CT)", _, true, 0.0);
-    g_hAnnouncerSounds = CreateConVar("js_announcer_sounds", ANNOUNCER_SOUNDS, "Turns the announcer sounds On/Off (-1=DISABLED, 0=OFF, 1=ON)");
+    if(!DISABLE_SOUNDS)
+        g_hAnnouncerSounds = CreateConVar("js_announcer_sounds", ANNOUNCER_SOUNDS, "Turns the announcer sounds On/Off (0=OFF, 1=ON)", _, true, 0.0, true, 1.0);
 
     g_hLJImpressive = CreateConVar("js_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("js_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
@@ -330,7 +334,8 @@ public OnPluginStart()
     HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
     HookConVarChange(g_hAnnounceToTeams, OnCvarChange);
     HookConVarChange(g_hRecordForTeams, OnCvarChange);
-    HookConVarChange(g_hAnnouncerSounds, OnCvarChange);
+    if(!DISABLE_SOUNDS)
+        HookConVarChange(g_hAnnouncerSounds, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -405,13 +410,11 @@ public OnConfigsExecuted()
     g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     g_iAnnounceToTeams = GetConVarInt(g_hAnnounceToTeams);
     g_iRecordForTeams = GetConVarInt(g_hRecordForTeams);
-    g_iAnnouncerSounds = GetConVarInt(g_hAnnouncerSounds);
-    if(g_iAnnouncerSounds > -1) {
-        for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
-            new String:sTemp[64];
-            AddFileToDownloadsTable(sTemp);
-        }
+    if(!DISABLE_SOUNDS) {
+        g_iAnnouncerSounds = GetConVarInt(g_hAnnouncerSounds);
     }
+    else
+        g_iAnnouncerSounds = 0;
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -479,15 +482,11 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("js_record_for_teams", sConVarName))
         g_iRecordForTeams = GetConVarInt(hConVar); else
     if(StrEqual("js_announcer_sounds", sConVarName)) {
-        if(g_iAnnouncerSounds != -1) {
-            new iNewValue = GetConVarInt(hConVar);
-            if(iNewValue != -1)
-                g_iAnnouncerSounds = iNewValue;
-            else
-                PrintToServer("The jump sounds can only be disabled through the config file.");
+        if(!DISABLE_SOUNDS) {
+            g_iAnnouncerSounds = GetConVarInt(hConVar);
         }
         else
-            PrintToServer("The jump sounds are completely disabled. You can change this through the config file.");
+            g_iAnnouncerSounds = 0;
     } else
 
     if(StrEqual("js_lj_impressive", sConVarName))
@@ -537,11 +536,13 @@ public Native_InterruptJump(Handle:hPlugin, iNumParams)
 
 public OnMapStart() {
     // Precache sounds
-    for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
-        new String:sTemp[64];
-        if(g_iAnnouncerSounds > -1) 
+    if(!DISABLE_SOUNDS) {
+        for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
+            new String:sTemp[64];
+            Format(sTemp, sizeof(sTemp), "sound/%s", g_saJumpSoundPaths[iTier][1])
             AddFileToDownloadsTable(sTemp);
-        AddToStringTable(FindStringTable("soundprecache"), g_saJumpSoundPaths[iTier]);
+            AddToStringTable(FindStringTable("soundprecache"), g_saJumpSoundPaths[iTier]);
+        }
     }
 }
 
