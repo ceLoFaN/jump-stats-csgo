@@ -8,7 +8,7 @@
 #include <clientprefs>
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.2.9"
+#define PLUGIN_VERSION              "0.3.0"
 #define STATS_ENABLED               "1"
 #define DISPLAY_ENABLED             "3"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
