@@ -3,7 +3,7 @@ jump-stats-csgo
 
 CS:GO Jump Stats plugin for SourceMod
 
-###Instalation
+###Installation
 
 #####For Windows:
   1. Download the latest release. ( https://github.com/ceLoFaN/jump-stats-csgo/releases/ )
