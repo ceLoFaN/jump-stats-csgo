@@ -1,4 +1,5 @@
 /* Special thanks to DocG, Delusional and wen for testing */
+/* Credits to hleV for sharing the Unreal Tournament sounds: https://forums.alliedmods.net/showthread.php?t=87869 */
 
 #include <sourcemod>
 #include <sdktools>
@@ -15,7 +16,9 @@
 #define MINIMUM_ANNOUNCE_TIER       "Impressive"
 #define ANNOUNCE_TO_TEAMS           "4"
 #define RECORD_FOR_TEAMS            "3"
+#define ANNOUNCER_SOUNDS            "1"
 
+// Don't play with this
 #define BHOP_TIME                   0.1
 
 // Jump Types
@@ -47,13 +50,14 @@
 #define IN_AIR                      0
 #define JUST_AIRED                  -1
 
-// Jump Distances
+// Jump Tiers
 #define IMPRESSIVE                  0
 #define EXCELLENT                   1
 #define OUTSTANDING                 2
 #define UNREAL                      3
 #define GODLIKE                     4
 
+// Jump Tier Distances by Type
 #define MINIMUM_LJ_DISTANCE         200.0
 #define LJ_IMPRESSIVE               "228.0"
 #define LJ_EXCELLENT                "234.0"
@@ -103,6 +107,15 @@
 #define LBHJ_UNREAL                  "258.0"
 #define LBHJ_GODLIKE                 "266.0"
 
+// Jump Tier Sound Paths
+new String:g_saJumpSoundPaths[][] = {
+    "*jumpstats/impressive.mp3",
+    "*jumpstats/excellent.mp3",
+    "*jumpstats/outstanding.mp3",
+    "*jumpstats/unreal.mp3",
+    "*jumpstats/godlike.mp3"
+}
+
 //Spec Defines
 #define REFRESH_RATE                0.1
 #define SPECMODE_NONE               0
@@ -135,6 +148,7 @@ new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
 new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
 new Handle:g_hAnnounceToTeams = INVALID_HANDLE;
 new Handle:g_hRecordForTeams = INVALID_HANDLE;
+new Handle:g_hAnnouncerSounds = INVALID_HANDLE;
 
 new Handle:g_hLJImpressive = INVALID_HANDLE;
 new Handle:g_hLJExcellent = INVALID_HANDLE;
@@ -185,6 +199,7 @@ new bool:g_bBunnyHopCancelsAnnouncer;
 new g_iMinimumAnnounceTier;
 new g_iAnnounceToTeams;
 new g_iRecordForTeams;
+new g_iAnnouncerSounds;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
 /*-----------------------------------------------------*/
@@ -262,7 +277,8 @@ public OnPluginStart()
     g_hBunnyHopCancelsAnnouncer = CreateConVar("js_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("js_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
     g_hAnnounceToTeams = CreateConVar("js_announce_to_teams", ANNOUNCE_TO_TEAMS, "The teams that can see jump announcements (0=NONE, 1=T, 2=CT, 3=T&CT, 4=ALL).", _, true, 0.0);
-    g_hRecordForTeams = CreateConVar("js_record_for_teams", RECORD_FOR_TEAMS, "The teams to record jumps for. (0=NONE, 1=T, 2=CT, 3=T&CT)", _, true, 0.0)
+    g_hRecordForTeams = CreateConVar("js_record_for_teams", RECORD_FOR_TEAMS, "The teams to record jumps for (0=NONE, 1=T, 2=CT, 3=T&CT)", _, true, 0.0);
+    g_hAnnouncerSounds = CreateConVar("js_announcer_sounds", ANNOUNCER_SOUNDS, "Turns the announcer sounds On/Off (-1=DISABLED, 0=OFF, 1=ON)");
 
     g_hLJImpressive = CreateConVar("js_lj_impressive", LJ_IMPRESSIVE, "The distance required for an Impressive Long Jump", _, true, 0.0);
     g_hLJExcellent = CreateConVar("js_lj_excellent", LJ_EXCELLENT, "The distance required for an Excellent Long Jump", _, true, 0.0);
@@ -314,6 +330,7 @@ public OnPluginStart()
     HookConVarChange(g_hMinimumAnnounceTier, OnCvarChange);
     HookConVarChange(g_hAnnounceToTeams, OnCvarChange);
     HookConVarChange(g_hRecordForTeams, OnCvarChange);
+    HookConVarChange(g_hAnnouncerSounds, OnCvarChange);
 
     HookConVarChange(g_hLJImpressive, OnCvarChange);
     HookConVarChange(g_hLJExcellent, OnCvarChange);
@@ -388,6 +405,13 @@ public OnConfigsExecuted()
     g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     g_iAnnounceToTeams = GetConVarInt(g_hAnnounceToTeams);
     g_iRecordForTeams = GetConVarInt(g_hRecordForTeams);
+    g_iAnnouncerSounds = GetConVarInt(g_hAnnouncerSounds);
+    if(g_iAnnouncerSounds > -1) {
+        for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
+            new String:sTemp[64];
+            AddFileToDownloadsTable(sTemp);
+        }
+    }
 
     g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(g_hLJImpressive);
     g_faQualityDistances[JUMP_LJ][EXCELLENT] = GetConVarFloat(g_hLJExcellent);
@@ -454,6 +478,17 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
         g_iAnnounceToTeams = GetConVarInt(hConVar); else
     if(StrEqual("js_record_for_teams", sConVarName))
         g_iRecordForTeams = GetConVarInt(hConVar); else
+    if(StrEqual("js_announcer_sounds", sConVarName)) {
+        if(g_iAnnouncerSounds != -1) {
+            new iNewValue = GetConVarInt(hConVar);
+            if(iNewValue != -1)
+                g_iAnnouncerSounds = iNewValue;
+            else
+                PrintToServer("The jump sounds can only be disabled through the config file.");
+        }
+        else
+            PrintToServer("The jump sounds are completely disabled. You can change this through the config file.");
+    } else
 
     if(StrEqual("js_lj_impressive", sConVarName))
         g_faQualityDistances[JUMP_LJ][IMPRESSIVE] = GetConVarFloat(hConVar); else
@@ -498,6 +533,16 @@ public Native_InterruptJump(Handle:hPlugin, iNumParams)
 
     new iClient = GetNativeCell(1);
     return InterruptJump(iClient);
+}
+
+public OnMapStart() {
+    // Precache sounds
+    for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
+        new String:sTemp[64];
+        if(g_iAnnouncerSounds > -1) 
+            AddFileToDownloadsTable(sTemp);
+        AddToStringTable(FindStringTable("soundprecache"), g_saJumpSoundPaths[iTier]);
+    }
 }
 
 public OnMapEnd() {
@@ -761,9 +806,16 @@ public AnnounceLastJump(iClient)
                     if(IsClientInGame(iId)) {
                         new iTeam = GetClientTeam(iId);
                         if(g_iAnnounceToTeams == 4 || 
-                           (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3)))
-                        PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
-                            sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                           (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3))) {
+                            // Announce in chat
+                            PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
+                                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                            // Announce by sound
+                            if(g_iAnnouncerSounds == 1) {
+                                EmitSoundToClient(iClient, g_saJumpSoundPaths[iQuality]);
+                            }
+                        }
+
                     }
                 }
         }
