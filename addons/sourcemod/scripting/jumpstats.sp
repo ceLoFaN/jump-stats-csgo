@@ -467,7 +467,7 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("js_enabled", sConVarName))
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("js_display_enabled", sConVarName))
-        g_bEnabled = GetConVarBool(hConVar); else
+        g_iDisplayEnabled = GetConVarBool(hConVar); else
     if(StrEqual("js_display_delay_roundstart", sConVarName))
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
     if(StrEqual("js_bunnyhop_cancels_announcer", sConVarName))
