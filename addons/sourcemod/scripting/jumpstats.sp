@@ -554,7 +554,7 @@ public OnMapEnd() {
 
     if(g_hInitialDisplayTimer != INVALID_HANDLE) {
         KillTimer(g_hInitialDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hInitialDisplayTimer = INVALID_HANDLE;
     }
 
     if(!g_bEnabled)
