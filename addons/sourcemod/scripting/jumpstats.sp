@@ -1117,8 +1117,10 @@ stock Float:GetPlayerSpeed(iClient)
 public OnMapVoteStarted()
 {
     g_bVote = true;
-    if(g_hVoteTimer != INVALID_HANDLE)
+    if(g_hVoteTimer != INVALID_HANDLE) {
         KillTimer(g_hVoteTimer);
+        g_hVoteTimer = INVALID_HANDLE;
+    }
     g_hVoteTimer = CreateTimer(0.1, CheckVoteEnd, _, TIMER_REPEAT);
 }
 
@@ -1126,7 +1128,9 @@ public Action:CheckVoteEnd(Handle:hTimer)
 {
     if(HasEndOfMapVoteFinished()) {
         g_bVote = false;
-        if(g_hVoteTimer != INVALID_HANDLE)
+        if(g_hVoteTimer != INVALID_HANDLE) {
             KillTimer(g_hVoteTimer);
+            g_hVoteTimer = INVALID_HANDLE;
+        }
     }
 }
