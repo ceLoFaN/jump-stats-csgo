@@ -6,6 +6,7 @@
 #include <sdkhooks>
 #include <cstrike>
 #include <clientprefs>
+#include <mapchooser>
 
 // Change DISABLE_SOUNDS to true in order to disable the announcer sounds and prevent them from downloading to players
 new bool:DISABLE_SOUNDS = false;
@@ -233,6 +234,8 @@ new g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
 new g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
 new g_iaButtons[MAXPLAYERS+1] = {0, ...};
 new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
+new bool:g_bVote = false;
+new Handle:g_hVoteTimer = INVALID_HANDLE;
 
 //Jump consts
 new const String:g_saJumpTypes[][] = {
@@ -554,7 +557,7 @@ public OnMapEnd() {
 
     if(g_hInitialDisplayTimer != INVALID_HANDLE) {
         KillTimer(g_hInitialDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hInitialDisplayTimer = INVALID_HANDLE;
     }
 
     if(!g_bEnabled)
@@ -605,7 +608,7 @@ public Action:StatsDisplay(Handle:hTimer)
 {
     if(g_bEnabled && g_iDisplayEnabled) {
         for(new iClient = 1; iClient <= MaxClients; iClient++) {
-            if(IsClientInGame(iClient) && g_baStats[iClient]) {
+            if(IsClientInGame(iClient) && g_baStats[iClient] && !g_bVote) {
                 if(IsPlayerAlive(iClient)) {
                     if(g_iDisplayEnabled == 3 || g_iDisplayEnabled == 1) {
                         decl String:sOutput[128];
@@ -1109,4 +1112,21 @@ stock Float:GetPlayerSpeed(iClient)
     fSpeed *= GetEntPropFloat(iClient, Prop_Data, "m_flLaggedMovementValue");
 
     return fSpeed;
+}
+
+public OnMapVoteStarted()
+{
+    g_bVote = true;
+    if(g_hVoteTimer != INVALID_HANDLE)
+        KillTimer(g_hVoteTimer);
+    g_hVoteTimer = CreateTimer(0.1, CheckVoteEnd, _, TIMER_REPEAT);
+}
+
+public Action:CheckVoteEnd(Handle:hTimer)
+{
+    if(HasEndOfMapVoteFinished()) {
+        g_bVote = false;
+        if(g_hVoteTimer != INVALID_HANDLE)
+            KillTimer(g_hVoteTimer);
+    }
 }
