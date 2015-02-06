@@ -547,6 +547,7 @@ public OnMapStart() {
             AddToStringTable(FindStringTable("soundprecache"), g_saJumpSoundPaths[iTier]);
         }
     }
+	g_bVote = false;
 }
 
 public OnMapEnd() {
