@@ -239,26 +239,6 @@ new bool:g_bVote = false;
 new Handle:g_hVoteTimer = INVALID_HANDLE;
 
 //Jump consts
-new const String:g_saJumpTypes[][] = {
-    "None",
-    "LJ",
-    "BHJ",
-    "MBHJ",
-    "LadJ",
-    "WHJ",
-    "LDHJ",
-    "LBHJ"
-}
-new const String:g_saPrettyJumpTypes[][] = {
-    "None",
-    "Long Jump",
-    "BunnyHop Jump",
-    "Multi BunnyHop Jump",
-    "Ladder Jump",
-    "WeirdHop Jump",
-    "Ladder DropHop Jump",
-    "Ladder BunnyHop Jump"
-}
 new const String:g_saJumpQualities[][] = {
     "Impressive",
     "Excellent",
