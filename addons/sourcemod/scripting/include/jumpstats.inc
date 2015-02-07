@@ -15,7 +15,8 @@ enum JumpType
 	Jump_LadJ,
 	Jump_WHJ,
 	Jump_LDHJ,
-	Jump_LBHJ
+	Jump_LBHJ,
+	Jump_End
 };
 
 /**
