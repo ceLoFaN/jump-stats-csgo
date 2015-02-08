@@ -7,6 +7,7 @@
 #include <cstrike>
 #include <clientprefs>
 #include <mapchooser>
+#include <jumpstats>
 
 // Change DISABLE_SOUNDS to true in order to disable the announcer sounds and prevent them from downloading to players
 new bool:DISABLE_SOUNDS = false;
@@ -238,26 +239,6 @@ new bool:g_bVote = false;
 new Handle:g_hVoteTimer = INVALID_HANDLE;
 
 //Jump consts
-new const String:g_saJumpTypes[][] = {
-    "None",
-    "LJ",
-    "BHJ",
-    "MBHJ",
-    "LadJ",
-    "WHJ",
-    "LDHJ",
-    "LBHJ"
-}
-new const String:g_saPrettyJumpTypes[][] = {
-    "None",
-    "Long Jump",
-    "BunnyHop Jump",
-    "Multi BunnyHop Jump",
-    "Ladder Jump",
-    "WeirdHop Jump",
-    "Ladder DropHop Jump",
-    "Ladder BunnyHop Jump"
-}
 new const String:g_saJumpQualities[][] = {
     "Impressive",
     "Excellent",
@@ -265,6 +246,8 @@ new const String:g_saJumpQualities[][] = {
     "Unreal",
     "Godlike"
 }
+
+new Handle:g_hJumpForward = INVALID_HANDLE;
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
@@ -400,6 +383,8 @@ public OnPluginStart()
             OnClientCookiesCached(iClient);
         }
     }
+    
+    g_hJumpForward = CreateGlobalForward("OnJump", ET_Ignore, Param_Cell, Param_Any, Param_Float);
 }
 
 public OnConfigsExecuted()
@@ -790,6 +775,47 @@ public AnnounceLastJump(iClient)
     if(g_iaJumpType[iClient] > JUMP_NONE) {
         new iType = g_iaJumpType[iClient];
 
+        new JumpType:type;
+        switch(iType) {
+            case JUMP_LJ:
+            {
+                type = Jump_LJ;
+            }
+            case JUMP_BHJ:
+            {
+                type = Jump_BHJ;
+            }
+            case JUMP_MBHJ:
+            {
+                type = Jump_MBHJ;
+            }
+            case JUMP_LADJ:
+            {
+                type = Jump_LadJ;
+            }
+            case JUMP_WHJ:
+            {
+                type = Jump_WHJ;
+            }
+            case JUMP_LDHJ:
+            {
+                type = Jump_LDHJ;
+            }
+            case JUMP_LBHJ:
+            {
+                type = Jump_LBHJ;
+            }
+            default:
+            {
+                type = Jump_None;
+            }
+        }
+        Call_StartForward(g_hJumpForward);
+        Call_PushCell(iClient);
+        Call_PushCell(type);
+        Call_PushFloat(g_faDistance[iClient]);
+        Call_Finish();
+        
         new iQuality;
         for(iQuality = -1; iQuality < sizeof(g_saJumpQualities) - 1; iQuality++) {
             if(g_faDistance[iClient] < g_faQualityDistances[iType][iQuality + 1])
