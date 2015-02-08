@@ -16,7 +16,7 @@ enum JumpType
 	Jump_WHJ,
 	Jump_LDHJ,
 	Jump_LBHJ,
-	Jump_End
+	Jump_End // Anchor for iteration
 };
 
 //Jump consts
