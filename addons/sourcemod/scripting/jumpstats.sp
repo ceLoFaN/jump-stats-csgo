@@ -237,6 +237,7 @@ new g_iaButtons[MAXPLAYERS+1] = {0, ...};
 new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 new bool:g_bVote = false;
 new Handle:g_hVoteTimer = INVALID_HANDLE;
+new Float:g_faPre[MAXPLAYERS + 1] = {0.0, ...};
 
 //Jump consts
 new const String:g_saJumpQualities[][] = {
@@ -621,6 +622,10 @@ public Action:StatsDisplay(Handle:hTimer)
                         // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
                         //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
                         //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
+                        
+                        // Pre display (speed before jump)
+                        Format(sOutput, sizeof(sOutput), "%s  Pre: %.1f", sOutput, g_faPre[iClient]);
+                        
                         PrintHintText(iClient, sOutput);
                     }
                 }
@@ -729,6 +734,7 @@ public OnClientDisconnect(iClient)
     g_iaBhops[iClient] = 0;
     g_baCanJump[iClient] = true;
     g_faLastDistance[iClient] = 0.0;
+    g_faPre[iClient] = 0.0;
 }
 
 public OnClientPutInServer(iClient)
@@ -1035,6 +1041,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         if(iButtons & IN_JUMP) {  // if the player is pressing the +jump button
             if(!g_baJustHopped[iClient]) {       // avoid fake jumps and multiple bhop recordings
                 if(g_baAntiJump[iClient]) {
+                    g_faPre[iClient] = GetPlayerSpeed(iClient);
                     if(g_iaJumped[iClient] > JUMP_NONE) {   // if the player jumped during the same frame he landed
                         g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
                         RecordJump(iClient);    // record the jump
