@@ -713,7 +713,6 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
     if(g_bEnabled && iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         if(IsPlayerAlive(iClient)) {
             if(g_iaJumped[iClient]) {  // if the player jumped before the touch occured
-                g_baCanJump[iClient] = true;  // the player can jump again (needs reworking, since the player can be in air)
                 if(iTouched > 0)  // the player touched an entity (not the world)
                     InterruptJump(iClient);  // therefore we interrupt the jump
                 else if(iTouched == 0)   // if the player touched the world
