@@ -13,7 +13,7 @@
 new bool:DISABLE_SOUNDS = false;
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.3.0"
+#define PLUGIN_VERSION              "0.3.2"
 #define STATS_ENABLED               "1"
 #define DISPLAY_ENABLED             "3"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
@@ -262,7 +262,7 @@ public OnPluginStart()
     //ConVars here
     CreateConVar("jumpstats_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
     g_hEnabled = CreateConVar("js_enabled", STATS_ENABLED, "Turns the jumpstats On/Off (0=OFF, 1=ON)", FCVAR_NOTIFY|FCVAR_PLUGIN, true, 0.0, true, 1.0);
-    g_hDisplayEnabled = CreateConVar("js_display_enabled", DISPLAY_ENABLED, "Turns the display On/Off by the player's state (0=OFF, 1=ALIVE, 2=DEAD, 3=ANY)", _, true, 0.0, true, 1.0)
+    g_hDisplayEnabled = CreateConVar("js_display_enabled", DISPLAY_ENABLED, "Turns the display On/Off by the player's state (0=OFF, 1=ALIVE, 2=DEAD, 3=ANY)", _, true, 0.0, true, 3.0)
     g_hDisplayDelayRoundstart = CreateConVar("js_display_delay_roundstart", DISPLAY_DELAY_ROUNDSTART, "Sets the roundstart delay before the display is shown.", _, true, 0.0);
     g_hBunnyHopCancelsAnnouncer = CreateConVar("js_bunnyhop_cancels_announcer", BUNNY_HOP_CANCELS_ANNOUNCER, "Decides if bunny hopping after a jump cancels the announcer.", _, true, 0.0, true, 1.0);
     g_hMinimumAnnounceTier = CreateConVar("js_minimum_announce_tier", MINIMUM_ANNOUNCE_TIER, "The minimum jump tier required for announcing.");
@@ -456,7 +456,7 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("js_enabled", sConVarName))
         g_bEnabled = GetConVarBool(hConVar); else
     if(StrEqual("js_display_enabled", sConVarName))
-        g_iDisplayEnabled = GetConVarBool(hConVar); else
+        g_iDisplayEnabled = GetConVarInt(hConVar); else
     if(StrEqual("js_display_delay_roundstart", sConVarName))
         g_fDisplayDelayRoundstart = GetConVarFloat(hConVar); else
     if(StrEqual("js_bunnyhop_cancels_announcer", sConVarName))
@@ -713,7 +713,6 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
     if(g_bEnabled && iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         if(IsPlayerAlive(iClient)) {
             if(g_iaJumped[iClient]) {  // if the player jumped before the touch occured
-                g_baCanJump[iClient] = true;  // the player can jump again (needs reworking, since the player can be in air)
                 if(iTouched > 0)  // the player touched an entity (not the world)
                     InterruptJump(iClient);  // therefore we interrupt the jump
                 else if(iTouched == 0)   // if the player touched the world
