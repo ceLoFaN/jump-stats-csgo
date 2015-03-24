@@ -8,6 +8,7 @@
 #include <clientprefs>
 #include <mapchooser>
 #include <jumpstats>
+#include <csgocolors> // https://forums.alliedmods.net/showpost.php?p=2171971&postcount=175
 
 // Change DISABLE_SOUNDS to true in order to disable the announcer sounds and prevent them from downloading to players
 new bool:DISABLE_SOUNDS = false;
@@ -121,6 +122,13 @@ new String:g_saJumpSoundPaths[][] = {
     "*jumpstats/godlike.mp3"
 }
 
+// Jump Tier Color
+#define IMPRESSIVE_COLOR             "{LIGHTBLUE}"
+#define EXCELLENT_COLOR              "{BLUE}"
+#define OUTSTANDING_COLOR            "{DARKBLUE}"
+#define UNREAL_COLOR                 "{PURPLE}"
+#define GODLIKE_COLOR                "{RED}"
+
 //Spec Defines
 #define REFRESH_RATE                0.1
 #define SPECMODE_NONE               0
@@ -197,6 +205,12 @@ new Handle:g_hLBHJOutstanding = INVALID_HANDLE;
 new Handle:g_hLBHJUnreal = INVALID_HANDLE;
 new Handle:g_hLBHJGodlike = INVALID_HANDLE;
 
+new Handle:g_hImpressiveColor = INVALID_HANDLE;
+new Handle:g_hExcellentColor = INVALID_HANDLE;
+new Handle:g_hOutstandingColor = INVALID_HANDLE;
+new Handle:g_hUnrealColor = INVALID_HANDLE;
+new Handle:g_hGodlikeColor = INVALID_HANDLE;
+
 new bool:g_bEnabled;
 new g_iDisplayEnabled;
 new Float:g_fDisplayDelayRoundstart;
@@ -207,6 +221,7 @@ new g_iRecordForTeams;
 new g_iAnnouncerSounds;
 
 new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
+new String:g_saQualityColor[5][32];
 /*-----------------------------------------------------*/
 
 //cookies
@@ -312,6 +327,12 @@ public OnPluginStart()
     g_hLBHJOutstanding = CreateConVar("js_lbhj_outstanding", LBHJ_OUTSTANDING, "The distance required for an Outstanding Ladder BunnyHop Jump", _, true, 0.0);
     g_hLBHJUnreal = CreateConVar("js_lbhj_unreal", LBHJ_UNREAL, "The distance required for an Unreal Ladder BunnyHop Jump", _, true, 0.0);
     g_hLBHJGodlike = CreateConVar("js_lbhj_godlike", LBHJ_GODLIKE, "The distance required for a Godlike Ladder BunnyHop Jump", _, true, 0.0);
+    
+    g_hImpressiveColor = CreateConVar("js_impressive_color", IMPRESSIVE_COLOR, "Impressive tire msg color");
+    g_hExcellentColor = CreateConVar("js_excellent_color", EXCELLENT_COLOR, "Excellent tire msg color");
+    g_hOutstandingColor = CreateConVar("js_outstanding_color", OUTSTANDING_COLOR, "Outstanding tire msg color");
+    g_hUnrealColor = CreateConVar("js_unreal_color", UNREAL_COLOR, "Unreal tire msg color");
+    g_hGodlikeColor = CreateConVar("js_godlike_color", GODLIKE_COLOR, "Godlike tire msg color");
     // Remember to add HOOKS to OnCvarChange | and also update OnConfigsExecuted
     //                                       V
     HookConVarChange(g_hEnabled, OnCvarChange);
@@ -365,6 +386,12 @@ public OnPluginStart()
     HookConVarChange(g_hLBHJOutstanding, OnCvarChange);
     HookConVarChange(g_hLBHJUnreal, OnCvarChange);
     HookConVarChange(g_hLBHJGodlike, OnCvarChange);
+    
+    HookConVarChange(g_hImpressiveColor, OnCvarChange);
+    HookConVarChange(g_hExcellentColor, OnCvarChange);
+    HookConVarChange(g_hOutstandingColor, OnCvarChange);
+    HookConVarChange(g_hUnrealColor, OnCvarChange);
+    HookConVarChange(g_hGodlikeColor, OnCvarChange);
     
     //Hooked'em
     HookEvent("player_spawn", OnPlayerSpawn);
@@ -446,6 +473,12 @@ public OnConfigsExecuted()
     g_faQualityDistances[JUMP_LBHJ][OUTSTANDING] = GetConVarFloat(g_hLBHJOutstanding);
     g_faQualityDistances[JUMP_LBHJ][UNREAL] = GetConVarFloat(g_hLBHJUnreal);
     g_faQualityDistances[JUMP_LBHJ][GODLIKE] = GetConVarFloat(g_hLBHJGodlike);
+    
+    GetConVarString(g_hImpressiveColor, g_saQualityColor[IMPRESSIVE], 32);
+    GetConVarString(g_hExcellentColor, g_saQualityColor[EXCELLENT], 32);
+    GetConVarString(g_hOutstandingColor, g_saQualityColor[OUTSTANDING], 32);
+    GetConVarString(g_hUnrealColor, g_saQualityColor[UNREAL], 32);
+    GetConVarString(g_hGodlikeColor, g_saQualityColor[GODLIKE], 32);
 }
 
 public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewValue[])
@@ -487,7 +520,18 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("js_lj_unreal", sConVarName))
         g_faQualityDistances[JUMP_LJ][UNREAL] = GetConVarFloat(hConVar); else
     if(StrEqual("js_lj_godlike", sConVarName))
-        g_faQualityDistances[JUMP_LJ][GODLIKE] = GetConVarFloat(hConVar);
+        g_faQualityDistances[JUMP_LJ][GODLIKE] = GetConVarFloat(hConVar); else
+        
+    if(StrEqual("js_impressive_color", sConVarName))
+        GetConVarString(hConVar, g_saQualityColor[IMPRESSIVE], 32); else
+    if(StrEqual("js_excellent_color", sConVarName))
+        GetConVarString(hConVar, g_saQualityColor[EXCELLENT], 32); else
+    if(StrEqual("js_outstanding_color", sConVarName))
+        GetConVarString(hConVar, g_saQualityColor[OUTSTANDING], 32); else
+    if(StrEqual("js_unreal_color", sConVarName))
+        GetConVarString(hConVar, g_saQualityColor[UNREAL], 32); else
+    if(StrEqual("js_godlike_color", sConVarName))
+        GetConVarString(hConVar, g_saQualityColor[GODLIKE], 32);
 }
 
 public OnClientCookiesCached(iClient)
@@ -844,8 +888,8 @@ public AnnounceLastJump(iClient)
                         if(g_iAnnounceToTeams == 4 || 
                            (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3))) {
                             // Announce in chat
-                            PrintToChat(iId, "[JS] %s did %s %s %.3f units %s.", 
-                                sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
+                            CPrintToChat(iId, "%s[JS] %s did %s %s %.3f units %s.", 
+                                g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
                             if(g_iAnnouncerSounds == 1) {
                                 EmitSoundToClient(iClient, g_saJumpSoundPaths[iQuality]);
