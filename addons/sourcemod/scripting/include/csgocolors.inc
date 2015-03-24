@@ -13,7 +13,7 @@
 #define _colors_included
  
 #define MAX_MESSAGE_LENGTH 250
-#define MAX_COLORS 11
+#define MAX_COLORS 12
 
 #define SERVER_INDEX 0
 #define NO_INDEX -1
@@ -31,19 +31,20 @@ enum Colors
 	Color_Gray,
 	Color_Blue,
 	Color_Darkblue,
-	Color_Purple
+	Color_Purple,
+	Color_Lightblue
 }
 
 /* Colors' properties */
-new String:CTag[][] = 	  {"{NORMAL}", "{DARKRED}", "{PINK}", "{GREEN}", "{YELLOW}", "{LIGHTGREEN}", "{RED}", "{GRAY}",  "{BLUE}", "{DARKBLUE}", "{PURPLE}"};
-new String:CTagCode[][] =  {"\x01",  	"\x02",   	"\x03",   "\x04",     "\x05",  		"\x06",  	 "\x07",   "\x08",    "\x0B",    "\x0C",      "\x0E"};
-new bool:CTagReqSayText2[] = {false, false, false, false, false, false, false, false, false, false, false};
+new String:CTag[][] = 	  {"{NORMAL}", "{DARKRED}", "{PINK}", "{GREEN}", "{YELLOW}", "{LIGHTGREEN}", "{RED}", "{GRAY}",  "{BLUE}", "{DARKBLUE}", "{PURPLE}", "{LIGHTBLUE}"};
+new String:CTagCode[][] =  {"\x01",  	"\x02",   	"\x03",   "\x04",     "\x05",  		"\x06",  	 "\x07",   "\x08",    "\x0B",    "\x0C",      "\x0E",     "\x0A"};
+new bool:CTagReqSayText2[] = {false, false, false, false, false, false, false, false, false, false, false, false};
 new bool:CEventIsHooked = false;
 new bool:CSkipList[MAXPLAYERS+1] = {false,...};
 
 /* Game default profile */
-new bool:CProfile_Colors[] = {true, false, false, false, false, false, false, false, false, false, false};
-new CProfile_TeamIndex[] = {NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX};
+new bool:CProfile_Colors[] = {true, false, false, false, false, false, false, false, false, false, false, false};
+new CProfile_TeamIndex[] = {NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX, NO_INDEX};
 new bool:CProfile_SayText2 = false;
 
 /**
@@ -452,6 +453,7 @@ stock CSetupProfile()
 		CProfile_Colors[Color_Darkblue] = true;
 		CProfile_Colors[Color_Purple] = true;
 		CProfile_Colors[Color_Lightgreen] = true;
+		CProfile_Colors[Color_Lightblue] = true;
 		CProfile_TeamIndex[Color_Red] = 2;
 		CProfile_TeamIndex[Color_Blue] = 3;
 		CProfile_SayText2 = true;
