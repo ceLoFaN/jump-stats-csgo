@@ -6,7 +6,9 @@
 #include <sdkhooks>
 #include <cstrike>
 #include <clientprefs>
+#undef REQUIRE_PLUGIN
 #include <mapchooser>
+#define REQUIRE_PLUGIN
 #include <jumpstats>
 #include <csgocolors> // https://forums.alliedmods.net/showpost.php?p=2171971&postcount=175
 
