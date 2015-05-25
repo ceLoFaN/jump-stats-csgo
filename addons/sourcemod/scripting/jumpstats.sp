@@ -1203,7 +1203,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     else
         g_baAntiJump[iClient] = false;   // +jump as been recorded
 
-    CopyVector(g_faPosition[iClient][LAST], g_faPosition[iClient][CURRENT]);
+    CopyVector(g_faPosition[iClient][CURRENT], g_faPosition[iClient][LAST]);
     g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
     // STATS END HERE
 
