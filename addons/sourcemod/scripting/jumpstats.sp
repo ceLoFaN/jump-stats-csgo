@@ -16,7 +16,7 @@
 new bool:DISABLE_SOUNDS = false;
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.3.2"
+#define PLUGIN_VERSION              "0.3.3"
 #define STATS_ENABLED               "1"
 #define DISPLAY_ENABLED             "3"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
@@ -28,6 +28,15 @@ new bool:DISABLE_SOUNDS = false;
 
 // Don't play with this
 #define BHOP_TIME                   0.1
+
+// Variables Temporality
+#define CURRENT                     0
+#define LAST                        1
+
+// Position Tendencies
+#define DESCENDING                  -1
+#define STABLE                      0
+#define ASCENDING                   1
 
 // Jump Types
 #define JUMP_INVALID                -3
@@ -255,6 +264,9 @@ new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 new bool:g_bVote = false;
 new Handle:g_hVoteTimer = INVALID_HANDLE;
 new Float:g_faPre[MAXPLAYERS + 1] = {0.0, ...};
+new Float:g_faPosition[MAXPLAYERS + 1][2][3];
+new g_iaTendency[MAXPLAYERS + 1][2];
+new g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
 
 //Jump consts
 new const String:g_saJumpQualities[][] = {
@@ -556,6 +568,7 @@ public bool:InterruptJump(iClient)
     g_baCanBhop[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
     g_iaJumpContext[iClient] = NONE;
+    g_iaTendencyFluctuations[iClient] = 0;
 
     return true;
 }
@@ -621,6 +634,7 @@ public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroad
     new iClient = GetClientOfUserId(iId);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baOnLadder[iClient] = false;
+    GetClientAbsOrigin(iClient, g_faPosition[iClient][LAST]);
 
     return Plugin_Continue;
 }
@@ -1013,6 +1027,9 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     
     // Record X-axis mouse movement for displaying
     static Float:s_fLastXAngle[MAXPLAYERS + 1]
+
+    // Record current player position 
+    GetClientAbsOrigin(iClient, g_faPosition[iClient][CURRENT]);
     
     // Recording angles every 9 frames for optimisation
     if(g_iaFrame[iClient] == 8) {
@@ -1045,10 +1062,23 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_baJustHopped[iClient] = false;
         g_iaFrame[iClient] = 0;
     }
-    
-    // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
-    if(g_iaJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
-        InterruptJump(iClient);
+
+    if(g_iaJumped[iClient]) {
+        // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
+        if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
+            InterruptJump(iClient);
+        // Interrupt the jump recording if the player is not constantly descending or ascending
+        new Float:fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
+        if(fHeightDifference < 0.0)
+            g_iaTendency[iClient][CURRENT] = DESCENDING;
+        else if(fHeightDifference > 0.0)
+            g_iaTendency[iClient][CURRENT] = ASCENDING;
+        else
+            g_iaTendency[iClient][CURRENT] = STABLE;
+        if(g_iaTendency[iClient][CURRENT] != g_iaTendency[iClient][LAST] && g_iaTendency[iClient][CURRENT] != STABLE)
+            g_iaTendencyFluctuations[iClient]++;
+        if(g_iaTendencyFluctuations[iClient] > 1)
+            InterruptJump(iClient);
     }
 
     // Detect if the player is attached to a ladder
@@ -1089,6 +1119,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                 if(g_baAntiJump[iClient]) {
                     g_faPre[iClient] = GetPlayerSpeed(iClient);
                     if(g_iaJumped[iClient] > JUMP_NONE) {   // if the player jumped during the same frame he landed
+                        g_iaTendencyFluctuations[iClient] = 0;
                         g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
                         RecordJump(iClient);    // record the jump
                         GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);    // get the player's coordinates for the next (hop) jump
@@ -1100,6 +1131,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                     }
                     else {
                         if(g_baCanJump[iClient]) {
+                            g_iaTendencyFluctuations[iClient] = 0;
                             GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                             if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
                                 g_iaBhops[iClient]++;       // update the bunnyhop counter
@@ -1170,6 +1202,9 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_baAntiJump[iClient] = true;    // -jump has been recorded
     else
         g_baAntiJump[iClient] = false;   // +jump as been recorded
+
+    CopyVector(g_faPosition[iClient][LAST], g_faPosition[iClient][CURRENT]);
+    g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
     // STATS END HERE
 
     return Plugin_Continue;
@@ -1192,6 +1227,12 @@ stock Float:GetPlayerSpeed(iClient)
     fSpeed *= GetEntPropFloat(iClient, Prop_Data, "m_flLaggedMovementValue");
 
     return fSpeed;
+}
+
+stock CopyVector(Float:faOrigin[3], Float:faTarget[3])
+{
+    for(new i = 0; i < 3; i++)
+        faTarget[i] = faOrigin[i];
 }
 
 public OnMapVoteStarted()
