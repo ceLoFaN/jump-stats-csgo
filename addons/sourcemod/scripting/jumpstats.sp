@@ -894,7 +894,8 @@ public AnnounceLastJump(iClient)
                                 g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
                             if(g_iAnnouncerSounds == 1) {
-                                EmitSoundToClient(iClient, g_saJumpSoundPaths[iQuality]);
+						if(iClient == iId || iQuality == 4)
+                                    EmitSoundToClient(iId, g_saJumpSoundPaths[iQuality]);
                             }
                         }
 
