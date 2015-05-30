@@ -667,7 +667,7 @@ public Action:StatsDisplay(Handle:hTimer)
                     if(g_iDisplayEnabled == 3 || g_iDisplayEnabled == 1) {
                         decl String:sOutput[128];
 
-                        Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
+                        Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups (%.1f)\n", GetPlayerSpeed(iClient), g_faPre[iClient]);
 
                         new iTeam = GetClientTeam(iClient);
                         if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
@@ -689,9 +689,6 @@ public Action:StatsDisplay(Handle:hTimer)
                         // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
                         //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
                         //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
-                        
-                        // Pre display (speed before jump)
-                        Format(sOutput, sizeof(sOutput), "%s  Pre: %.1f", sOutput, g_faPre[iClient]);
                         
                         PrintHintText(iClient, sOutput);
                     }
