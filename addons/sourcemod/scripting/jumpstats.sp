@@ -249,6 +249,7 @@ new g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
 new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
+new bool:g_baCanDuck[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
@@ -418,10 +419,11 @@ public OnPluginStart()
     g_bEnabled = true;
     
     RegConsoleCmd("togglestats", Command_ToggleStats);
+    RegConsoleCmd("toggleannouncersounds", Command_ToggleSoundAnnouncer);
     AutoExecConfig(true, "jumpstats");
     
     g_hToggleStatsCookie = RegClientCookie("ToggleStatsCookie", "Me want cookie!", CookieAccess_Private);
-    g_hToggleAnnouncerSoundsCookie = RegClientCookie("ToogleAnnouncerStatsCookie", "Me can't afford it.", CookieAccess_Private);
+    g_hToggleAnnouncerSoundsCookie = RegClientCookie("ToogleAnnouncerSoundsCookie", "Me can't afford it.", CookieAccess_Private);
     
     for(new iClient = 1; iClient <= MaxClients; iClient++) {
         if(IsClientInGame(iClient) && !IsFakeClient(iClient) && AreClientCookiesCached(iClient)) {
@@ -556,10 +558,10 @@ public OnClientCookiesCached(iClient)
     decl String:sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
-    g_baStats[iClient] = StrEqual(sCookieValue, "on");
+    g_baStats[iClient] = !StrEqual(sCookieValue, "off");
 
     GetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, sCookieValue, sizeof(sCookieValue));
-    g_baAnnouncerSounds[iClient] = StrEqual(sCookieValue, "on");
+    g_baAnnouncerSounds[iClient] = !StrEqual(sCookieValue, "off");
 }
 
 public bool:InterruptJump(iClient) 
@@ -567,6 +569,8 @@ public bool:InterruptJump(iClient)
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
+    if(g_iaTendencyFluctuations)
+        PrintToConsole(iClient, "!INTERRUPT! - Your height fluctuated too much during the jump.", g_iaTendencyFluctuations[iClient]);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
@@ -1080,6 +1084,19 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_iaFrame[iClient] = 0;
     }
 
+    if(iButtons & IN_DUCK) {
+        if(g_baCanDuck[iClient]){
+            g_baCanDuck[iClient] = false;
+            g_iaTendencyFluctuations[iClient]--;
+        }
+    }
+    else {
+        if(!g_baCanDuck[iClient]){
+            g_baCanDuck[iClient] = true;
+            g_iaTendencyFluctuations[iClient]--;
+        }
+    }
+
     if(g_iaJumped[iClient]) {
         // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
         if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
@@ -1094,7 +1111,8 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
             g_iaTendency[iClient][CURRENT] = STABLE;
         if(g_iaTendency[iClient][CURRENT] != g_iaTendency[iClient][LAST] && g_iaTendency[iClient][CURRENT] != STABLE)
             g_iaTendencyFluctuations[iClient]++;
-        if(g_iaTendencyFluctuations[iClient] > 1)
+        g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
+        if(g_iaTendencyFluctuations[iClient] > 3) // actually 2 is enough, except for the most common case when the player ducks after descending
             InterruptJump(iClient);
     }
 
@@ -1221,7 +1239,6 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_baAntiJump[iClient] = false;   // +jump as been recorded
 
     CopyVector(g_faPosition[iClient][CURRENT], g_faPosition[iClient][LAST]);
-    g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
     // STATS END HERE
 
     return Plugin_Continue;
