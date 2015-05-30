@@ -237,11 +237,13 @@ new String:g_saQualityColor[5][32];
 
 //cookies
 new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
+new Handle:g_hToggleAnnouncerSoundsCookie = INVALID_HANDLE;
 
 //stats
 new Handle:g_hDisplayTimer = INVALID_HANDLE;
 new Handle:g_hInitialDisplayTimer = INVALID_HANDLE;
 new bool:g_baStats[MAXPLAYERS + 1] = {true, ...};
+new bool:g_baAnnouncerSounds[MAXPLAYERS + 1] = {true, ...};
 new g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
 new g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
 new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
@@ -419,6 +421,7 @@ public OnPluginStart()
     AutoExecConfig(true, "jumpstats");
     
     g_hToggleStatsCookie = RegClientCookie("ToggleStatsCookie", "Me want cookie!", CookieAccess_Private);
+    g_hToggleAnnouncerSoundsCookie = RegClientCookie("ToogleAnnouncerStatsCookie", "Me can't afford it.", CookieAccess_Private);
     
     for(new iClient = 1; iClient <= MaxClients; iClient++) {
         if(IsClientInGame(iClient) && !IsFakeClient(iClient) && AreClientCookiesCached(iClient)) {
@@ -553,10 +556,10 @@ public OnClientCookiesCached(iClient)
     decl String:sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
-    if(StrEqual(sCookieValue, "off"))
-        g_baStats[iClient] = false;
-    else
-        g_baStats[iClient] = true;
+    g_baStats[iClient] = StrEqual(sCookieValue, "on");
+
+    GetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, sCookieValue, sizeof(sCookieValue));
+    g_baAnnouncerSounds[iClient] = StrEqual(sCookieValue, "on");
 }
 
 public bool:InterruptJump(iClient) 
@@ -763,7 +766,21 @@ public Action:Command_ToggleStats(iClient, iArgs)
         else
             SetClientCookie(iClient, g_hToggleStatsCookie, "on");
         
-        PrintToChat(iClient, "\x04[JS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
+        PrintToChat(iClient, "\x04[JS] You have turned %s the jump stats.", g_baStats[iClient] ? "on" : "off");
+    }
+    return Plugin_Handled;
+}
+
+public Action:Command_ToggleSoundAnnouncer(iClient, iArgs)
+{
+    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
+        g_baAnnouncerSounds[iClient] = !g_baAnnouncerSounds[iClient];
+        if(!g_baAnnouncerSounds[iClient])
+            SetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, "off");
+        else
+            SetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, "on");
+        
+        PrintToChat(iClient, "\x04[JS] You have turned %s the announcer sounds.", g_baAnnouncerSounds[iClient] ? "on" : "off");
     }
     return Plugin_Handled;
 }
@@ -899,7 +916,7 @@ public AnnounceLastJump(iClient)
 
             if(g_iAnnounceToTeams) 
                 for(new iId = 1; iId < MaxClients; iId++) {
-                    if(IsClientInGame(iId)) {
+                    if(IsClientInGame(iId) && g_baStats[iId]) {
                         new iTeam = GetClientTeam(iId);
                         if(g_iAnnounceToTeams == 4 || 
                            (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3))) {
@@ -907,8 +924,8 @@ public AnnounceLastJump(iClient)
                             CPrintToChat(iId, "%s[JS] %s did %s %s %.3f units %s.", 
                                 g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
-                            if(g_iAnnouncerSounds == 1) {
-						if(iClient == iId || iQuality == 4)
+                            if(g_iAnnouncerSounds == 1 && g_baAnnouncerSounds[iId]) {
+						        if(iClient == iId || iQuality == 4)
                                     EmitSoundToClient(iId, g_saJumpSoundPaths[iQuality]);
                             }
                         }
