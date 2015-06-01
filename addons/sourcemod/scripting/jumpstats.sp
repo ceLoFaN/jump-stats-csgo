@@ -564,19 +564,21 @@ public OnClientCookiesCached(iClient)
     g_baAnnouncerSounds[iClient] = !StrEqual(sCookieValue, "off");
 }
 
-public bool:InterruptJump(iClient) 
+public bool:InterruptJump(iClient, const String:sMessage[]) 
 {
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
-    if(g_iaTendencyFluctuations)
-        PrintToConsole(iClient, "!INTERRUPT! - Your height fluctuated too much during the jump.", g_iaTendencyFluctuations[iClient]);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
     g_iaJumpContext[iClient] = NONE;
     g_iaTendencyFluctuations[iClient] = 0;
 
+    if(!sMessage[0])
+        PrintToConsole(iClient, "[JS] Your jump recording was interrupted.");
+    else
+        PrintToConsole(iClient, sMessage);
     return true;
 }
 
@@ -586,7 +588,11 @@ public Native_InterruptJump(Handle:hPlugin, iNumParams)
         return false;
 
     new iClient = GetNativeCell(1);
-    return InterruptJump(iClient);
+    new String:sPluginName[64];
+    GetPluginFilename(hPlugin, sPluginName, sizeof(sPluginName));
+    new String:sInterruptMessage[100];
+    Format(sInterruptMessage, sizeof(sInterruptMessage), "[JS] Your jump was interrupted by a plugin called %s.", sPluginName)
+    return InterruptJump(iClient, sInterruptMessage);
 }
 
 public OnMapStart() {
@@ -685,7 +691,7 @@ public Action:StatsDisplay(Handle:hTimer)
                             }
                         }
 
-                        Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i", sOutput, g_iaBhops[iClient]);
+                        Format(sOutput, sizeof(sOutput), "%s  BunnyHops: %i | %i", sOutput, g_iaBhops[iClient], g_iaTendencyFluctuations[iClient]);
                         // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
                         //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
                         //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
@@ -792,10 +798,10 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
         if(IsPlayerAlive(iClient)) {
             if(g_iaJumped[iClient]) {  // if the player jumped before the touch occured
                 if(iTouched > 0)  // the player touched an entity (not the world)
-                    InterruptJump(iClient);  // therefore we interrupt the jump
+                    InterruptJump(iClient, "[JS] Your jump was interrupted because you touched something.");  // therefore we interrupt the jump
                 else if(iTouched == 0)   // if the player touched the world
                     if(!(GetEntityFlags(iClient) & FL_ONGROUND))  // and it's currently not standing on the ground
-                        InterruptJump(iClient);  // interrupt the jump recording
+                        InterruptJump(iClient, "[JS] Your jump was interrupted because you touched a wall.");  // interrupt the jump recording
             }
         }
     }
@@ -1097,7 +1103,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     if(g_iaJumped[iClient]) {
         // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
         if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
-            InterruptJump(iClient);
+            InterruptJump(iClient, "[JS] Your jump was interrupted because you are not in-air or walking.");
         // Interrupt the jump recording if the player is not constantly descending or ascending
         new Float:fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
         if(fHeightDifference < 0.0)
@@ -1110,9 +1116,8 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
             g_iaTendencyFluctuations[iClient]++;
         g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
         if(g_iaTendencyFluctuations[iClient] > 3) // actually 2 is enough, except for the most common case when the player ducks after descending
-            InterruptJump(iClient);
+            InterruptJump(iClient, "[JS] Your height fluctuated too much during the jump.");
     }
-
     // Detect if the player is attached to a ladder
     if(GetEntityMoveType(iClient) == MOVETYPE_LADDER) {
         if(!g_baOnLadder[iClient]) {
