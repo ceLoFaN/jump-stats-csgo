@@ -16,7 +16,7 @@
 new bool:DISABLE_SOUNDS = false;
 
 // ConVar Defines
-#define PLUGIN_VERSION              "0.3.2"
+#define PLUGIN_VERSION              "0.3.3"
 #define STATS_ENABLED               "1"
 #define DISPLAY_ENABLED             "3"
 #define DISPLAY_DELAY_ROUNDSTART    "0"
@@ -28,6 +28,15 @@ new bool:DISABLE_SOUNDS = false;
 
 // Don't play with this
 #define BHOP_TIME                   0.1
+
+// Variables Temporality
+#define CURRENT                     0
+#define LAST                        1
+
+// Position Tendencies
+#define DESCENDING                  -1
+#define STABLE                      0
+#define ASCENDING                   1
 
 // Jump Types
 #define JUMP_INVALID                -3
@@ -228,16 +237,19 @@ new String:g_saQualityColor[5][32];
 
 //cookies
 new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
+new Handle:g_hToggleAnnouncerSoundsCookie = INVALID_HANDLE;
 
 //stats
 new Handle:g_hDisplayTimer = INVALID_HANDLE;
 new Handle:g_hInitialDisplayTimer = INVALID_HANDLE;
 new bool:g_baStats[MAXPLAYERS + 1] = {true, ...};
+new bool:g_baAnnouncerSounds[MAXPLAYERS + 1] = {true, ...};
 new g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
 new g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
 new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
+new bool:g_baCanDuck[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
 new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
 new bool:g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
@@ -255,6 +267,9 @@ new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 new bool:g_bVote = false;
 new Handle:g_hVoteTimer = INVALID_HANDLE;
 new Float:g_faPre[MAXPLAYERS + 1] = {0.0, ...};
+new Float:g_faPosition[MAXPLAYERS + 1][2][3];
+new g_iaTendency[MAXPLAYERS + 1][2];
+new g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
 
 //Jump consts
 new const String:g_saJumpQualities[][] = {
@@ -404,9 +419,11 @@ public OnPluginStart()
     g_bEnabled = true;
     
     RegConsoleCmd("togglestats", Command_ToggleStats);
+    RegConsoleCmd("toggleannouncersounds", Command_ToggleSoundAnnouncer);
     AutoExecConfig(true, "jumpstats");
     
     g_hToggleStatsCookie = RegClientCookie("ToggleStatsCookie", "Me want cookie!", CookieAccess_Private);
+    g_hToggleAnnouncerSoundsCookie = RegClientCookie("ToogleAnnouncerSoundsCookie", "Me can't afford it.", CookieAccess_Private);
     
     for(new iClient = 1; iClient <= MaxClients; iClient++) {
         if(IsClientInGame(iClient) && !IsFakeClient(iClient) && AreClientCookiesCached(iClient)) {
@@ -541,10 +558,10 @@ public OnClientCookiesCached(iClient)
     decl String:sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
-    if(StrEqual(sCookieValue, "off"))
-        g_baStats[iClient] = false;
-    else
-        g_baStats[iClient] = true;
+    g_baStats[iClient] = !StrEqual(sCookieValue, "off");
+
+    GetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, sCookieValue, sizeof(sCookieValue));
+    g_baAnnouncerSounds[iClient] = !StrEqual(sCookieValue, "off");
 }
 
 public bool:InterruptJump(iClient) 
@@ -552,10 +569,13 @@ public bool:InterruptJump(iClient)
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
+    if(g_iaTendencyFluctuations)
+        PrintToConsole(iClient, "!INTERRUPT! - Your height fluctuated too much during the jump.", g_iaTendencyFluctuations[iClient]);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
     g_iaJumpContext[iClient] = NONE;
+    g_iaTendencyFluctuations[iClient] = 0;
 
     return true;
 }
@@ -621,6 +641,7 @@ public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroad
     new iClient = GetClientOfUserId(iId);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baOnLadder[iClient] = false;
+    GetClientAbsOrigin(iClient, g_faPosition[iClient][LAST]);
 
     return Plugin_Continue;
 }
@@ -646,7 +667,7 @@ public Action:StatsDisplay(Handle:hTimer)
                     if(g_iDisplayEnabled == 3 || g_iDisplayEnabled == 1) {
                         decl String:sOutput[128];
 
-                        Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups\n", GetPlayerSpeed(iClient));
+                        Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups (%.1f)\n", GetPlayerSpeed(iClient), g_faPre[iClient]);
 
                         new iTeam = GetClientTeam(iClient);
                         if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
@@ -668,9 +689,6 @@ public Action:StatsDisplay(Handle:hTimer)
                         // feature to add: for 0 bunnyhops: show LJ Strafes (x% sync)
                         //                 for 1 bunnyhop:  show BJ Strafes (x% sync)
                         //                 for 2 bunnyhops: show Number of bunnyhops and average speed / sync / distance covered
-                        
-                        // Pre display (speed before jump)
-                        Format(sOutput, sizeof(sOutput), "%s  Pre: %.1f", sOutput, g_faPre[iClient]);
                         
                         PrintHintText(iClient, sOutput);
                     }
@@ -749,7 +767,21 @@ public Action:Command_ToggleStats(iClient, iArgs)
         else
             SetClientCookie(iClient, g_hToggleStatsCookie, "on");
         
-        PrintToChat(iClient, "\x04[JS] You have turned %s the Jump Stats.", g_baStats[iClient] ? "on" : "off");
+        PrintToChat(iClient, "\x04[JS] You have turned %s the jump stats.", g_baStats[iClient] ? "on" : "off");
+    }
+    return Plugin_Handled;
+}
+
+public Action:Command_ToggleSoundAnnouncer(iClient, iArgs)
+{
+    if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
+        g_baAnnouncerSounds[iClient] = !g_baAnnouncerSounds[iClient];
+        if(!g_baAnnouncerSounds[iClient])
+            SetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, "off");
+        else
+            SetClientCookie(iClient, g_hToggleAnnouncerSoundsCookie, "on");
+        
+        PrintToChat(iClient, "\x04[JS] You have turned %s the announcer sounds.", g_baAnnouncerSounds[iClient] ? "on" : "off");
     }
     return Plugin_Handled;
 }
@@ -885,7 +917,7 @@ public AnnounceLastJump(iClient)
 
             if(g_iAnnounceToTeams) 
                 for(new iId = 1; iId < MaxClients; iId++) {
-                    if(IsClientInGame(iId)) {
+                    if(IsClientInGame(iId) && g_baStats[iId]) {
                         new iTeam = GetClientTeam(iId);
                         if(g_iAnnounceToTeams == 4 || 
                            (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3))) {
@@ -893,8 +925,9 @@ public AnnounceLastJump(iClient)
                             CPrintToChat(iId, "%s[JS] %s did %s %s %.3f units %s.", 
                                 g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
-                            if(g_iAnnouncerSounds == 1) {
-                                EmitSoundToClient(iClient, g_saJumpSoundPaths[iQuality]);
+                            if(g_iAnnouncerSounds == 1 && g_baAnnouncerSounds[iId]) {
+						        if(iClient == iId || iQuality == 4)
+                                    EmitSoundToClient(iId, g_saJumpSoundPaths[iQuality]);
                             }
                         }
 
@@ -1012,6 +1045,9 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     
     // Record X-axis mouse movement for displaying
     static Float:s_fLastXAngle[MAXPLAYERS + 1]
+
+    // Record current player position 
+    GetClientAbsOrigin(iClient, g_faPosition[iClient][CURRENT]);
     
     // Recording angles every 9 frames for optimisation
     if(g_iaFrame[iClient] == 8) {
@@ -1044,10 +1080,37 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_baJustHopped[iClient] = false;
         g_iaFrame[iClient] = 0;
     }
-    
-    // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
-    if(g_iaJumped[iClient] && GetEntityMoveType(iClient) != MOVETYPE_WALK) {
-        InterruptJump(iClient);
+
+    if(iButtons & IN_DUCK) {
+        if(g_baCanDuck[iClient]){
+            g_baCanDuck[iClient] = false;
+            g_iaTendencyFluctuations[iClient]--;
+        }
+    }
+    else {
+        if(!g_baCanDuck[iClient]){
+            g_baCanDuck[iClient] = true;
+            g_iaTendencyFluctuations[iClient]--;
+        }
+    }
+
+    if(g_iaJumped[iClient]) {
+        // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
+        if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
+            InterruptJump(iClient);
+        // Interrupt the jump recording if the player is not constantly descending or ascending
+        new Float:fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
+        if(fHeightDifference < 0.0)
+            g_iaTendency[iClient][CURRENT] = DESCENDING;
+        else if(fHeightDifference > 0.0)
+            g_iaTendency[iClient][CURRENT] = ASCENDING;
+        else
+            g_iaTendency[iClient][CURRENT] = STABLE;
+        if(g_iaTendency[iClient][CURRENT] != g_iaTendency[iClient][LAST] && g_iaTendency[iClient][CURRENT] != STABLE)
+            g_iaTendencyFluctuations[iClient]++;
+        g_iaTendency[iClient][LAST] = g_iaTendency[iClient][CURRENT];
+        if(g_iaTendencyFluctuations[iClient] > 3) // actually 2 is enough, except for the most common case when the player ducks after descending
+            InterruptJump(iClient);
     }
 
     // Detect if the player is attached to a ladder
@@ -1088,6 +1151,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                 if(g_baAntiJump[iClient]) {
                     g_faPre[iClient] = GetPlayerSpeed(iClient);
                     if(g_iaJumped[iClient] > JUMP_NONE) {   // if the player jumped during the same frame he landed
+                        g_iaTendencyFluctuations[iClient] = 0;
                         g_baAnnounceLastJump[iClient] = false;  // don't announce this jump in case bunnyhopping cancels the announcer
                         RecordJump(iClient);    // record the jump
                         GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);    // get the player's coordinates for the next (hop) jump
@@ -1099,6 +1163,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
                     }
                     else {
                         if(g_baCanJump[iClient]) {
+                            g_iaTendencyFluctuations[iClient] = 0;
                             GetClientAbsOrigin(iClient, g_faJumpCoord[iClient]);
                             if(g_baCanBhop[iClient]) {       // if the bhop time hasn't expired yet
                                 g_iaBhops[iClient]++;       // update the bunnyhop counter
@@ -1169,6 +1234,8 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         g_baAntiJump[iClient] = true;    // -jump has been recorded
     else
         g_baAntiJump[iClient] = false;   // +jump as been recorded
+
+    CopyVector(g_faPosition[iClient][CURRENT], g_faPosition[iClient][LAST]);
     // STATS END HERE
 
     return Plugin_Continue;
@@ -1191,6 +1258,12 @@ stock Float:GetPlayerSpeed(iClient)
     fSpeed *= GetEntPropFloat(iClient, Prop_Data, "m_flLaggedMovementValue");
 
     return fSpeed;
+}
+
+stock CopyVector(Float:faOrigin[3], Float:faTarget[3])
+{
+    for(new i = 0; i < 3; i++)
+        faTarget[i] = faOrigin[i];
 }
 
 public OnMapVoteStarted()

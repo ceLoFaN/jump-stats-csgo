@@ -2,6 +2,13 @@ jump-stats-csgo
 ===============
 
 CS:GO Jump Stats plugin for SourceMod
+###Description
+
+JumpStats is currently able to record jump distances and recognise a few jump types. It also features a display for both alive players and spectators (distance, speed, key presses, bunnyhops) and a basic announcer (by chat and / or sound).
+
+JumpStats can be paired with the [JumpTop plugin] (https://github.com/Kailo97/jump-top) in order to add jump top functionalities (jump tops by jump type, !jumptop, !record commands ...).
+
+There are still a few bugs in this plugin which might or might not get fixed in the future.
 
 ###Installation
 
