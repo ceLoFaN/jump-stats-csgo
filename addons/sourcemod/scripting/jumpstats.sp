@@ -569,7 +569,7 @@ public bool:InterruptJump(iClient)
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
-    if(g_iaTendencyFluctuations)
+    if(g_iaTendencyFluctuations[iClient])
         PrintToConsole(iClient, "!INTERRUPT! - Your height fluctuated too much during the jump.", g_iaTendencyFluctuations[iClient]);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
