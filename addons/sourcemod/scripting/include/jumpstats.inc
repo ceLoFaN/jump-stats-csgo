@@ -16,11 +16,12 @@ enum JumpType
 	Jump_WHJ,
 	Jump_LDHJ,
 	Jump_LBHJ,
+	
 	Jump_End // Anchor for iteration
 };
 
 //Jump consts
-new const String:g_saJumpTypes[][] = {
+stock const char g_saJumpTypes[][] = {
     "None",
     "LJ",
     "BHJ",
@@ -30,7 +31,7 @@ new const String:g_saJumpTypes[][] = {
     "LDHJ",
     "LBHJ"
 }
-new const String:g_saPrettyJumpTypes[][] = {
+stock const char g_saPrettyJumpTypes[][] = {
     "None",
     "Long Jump",
     "BunnyHop Jump",
@@ -47,9 +48,25 @@ new const String:g_saPrettyJumpTypes[][] = {
  * @param client    The target player.
  * @return          True if the jump was successfully interrupted, false otherwise.
  */
-native JumpStats_InterruptJump(client);
+native bool JumpStats_InterruptJump(int client);
 
 /**
  * Called when player do a jump.
  */
-forward OnJump(client, JumpType:type, Float:distance);
+forward void OnJump(int client, JumpType type, float distance);
+
+public SharedPlugin:__pl_jumpstats = 
+{
+	name = "jump stats",
+	file = "jumpstats.smx",
+#if defined REQUIRE_PLUGIN
+	required = 1,
+#else
+	required = 0,
+#endif
+};
+
+public __pl_jumpstats_SetNTVOptional()
+{
+	MarkNativeAsOptional("JumpStats_InterruptJump");
+}
