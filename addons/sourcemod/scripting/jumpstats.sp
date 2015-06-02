@@ -242,8 +242,8 @@ Handle g_hToggleStatsCookie;
 Handle g_hToggleAnnouncerSoundsCookie;
 
 //stats
-Handle g_hDisplayTimer = INVALID_HANDLE;
-Handle g_hInitialDisplayTimer = INVALID_HANDLE;
+Handle g_hDisplayTimer;
+Handle g_hInitialDisplayTimer;
 bool g_baStats[MAXPLAYERS + 1] = {true, ...};
 bool g_baAnnouncerSounds[MAXPLAYERS + 1] = {true, ...};
 int g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
@@ -267,7 +267,7 @@ int g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
 int g_iaButtons[MAXPLAYERS+1] = {0, ...};
 int g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
 bool g_bVote = false;
-Handle g_hVoteTimer = INVALID_HANDLE;
+Handle g_hVoteTimer;
 float g_faPre[MAXPLAYERS + 1] = {0.0, ...};
 float g_faPosition[MAXPLAYERS + 1][2][3];
 int g_iaTendency[MAXPLAYERS + 1][2];
@@ -605,14 +605,14 @@ public void OnMapStart() {
 }
 
 public void OnMapEnd() {
-    if(g_hDisplayTimer != INVALID_HANDLE) {
+    if(g_hDisplayTimer != null) {
         KillTimer(g_hDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hDisplayTimer = null;
     }
 
-    if(g_hInitialDisplayTimer != INVALID_HANDLE) {
+    if(g_hInitialDisplayTimer != null) {
         KillTimer(g_hInitialDisplayTimer);
-        g_hInitialDisplayTimer = INVALID_HANDLE;
+        g_hInitialDisplayTimer = null;
     }
 
     if(!g_bEnabled)
@@ -624,11 +624,11 @@ public Action OnRoundStart(Event hEvent, const char[] sName, bool bDontBroadcast
     if(!g_bEnabled)
         return Plugin_Continue;
 
-    if(g_hDisplayTimer != INVALID_HANDLE) {
+    if(g_hDisplayTimer != null) {
         KillTimer(g_hDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hDisplayTimer = null;
     }
-    if(g_hInitialDisplayTimer != INVALID_HANDLE)
+    if(g_hInitialDisplayTimer != null)
         KillTimer(g_hInitialDisplayTimer);
     g_hInitialDisplayTimer = CreateTimer(g_fDisplayDelayRoundstart, ShowDisplay);
 
@@ -650,8 +650,8 @@ public Action OnPlayerSpawn(Event hEvent, const char[] sName, bool bDontBroadcas
 
 public Action ShowDisplay(Handle hTimer)
 {
-    g_hInitialDisplayTimer = INVALID_HANDLE;
-    if(g_hDisplayTimer != INVALID_HANDLE)
+    g_hInitialDisplayTimer = null;
+    if(g_hDisplayTimer != null)
         KillTimer(g_hDisplayTimer);
     for(int iClient = 1; iClient <= MaxClients; iClient++) {
         g_iaButtons[iClient] = 0;
@@ -1248,9 +1248,9 @@ stock void CopyVector(float faOrigin[3], float faTarget[3])
 public void OnMapVoteStarted()
 {
     g_bVote = true;
-    if(g_hVoteTimer != INVALID_HANDLE) {
+    if(g_hVoteTimer != null) {
         KillTimer(g_hVoteTimer);
-        g_hVoteTimer = INVALID_HANDLE;
+        g_hVoteTimer = null;
     }
     g_hVoteTimer = CreateTimer(0.1, CheckVoteEnd, _, TIMER_REPEAT);
 }
@@ -1259,9 +1259,9 @@ public Action CheckVoteEnd(Handle hTimer)
 {
     if(HasEndOfMapVoteFinished()) {
         g_bVote = false;
-        if(g_hVoteTimer != INVALID_HANDLE) {
+        if(g_hVoteTimer != null) {
             KillTimer(g_hVoteTimer);
-            g_hVoteTimer = INVALID_HANDLE;
+            g_hVoteTimer = null;
         }
     }
 }
