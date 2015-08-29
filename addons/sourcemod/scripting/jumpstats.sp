@@ -286,9 +286,11 @@ Handle g_hJumpForward;
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-   CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
+    CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
 
-   return APLRes_Success;
+    RegPluginLibrary("jumpstats");
+
+    return APLRes_Success;
 }
 
 public void OnPluginStart()

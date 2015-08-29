@@ -57,12 +57,12 @@ forward void OnJump(int client, JumpType type, float distance);
 
 public SharedPlugin:__pl_jumpstats = 
 {
-	name = "jump stats",
+	name = "jumpstats",
 	file = "jumpstats.smx",
 #if defined REQUIRE_PLUGIN
 	required = 1,
 #else
-	required = 0,
+	required = 0
 #endif
 };
 
