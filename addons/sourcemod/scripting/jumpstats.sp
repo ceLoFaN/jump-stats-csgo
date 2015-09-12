@@ -12,8 +12,10 @@
 #include <jumpstats>
 #include <csgocolors> // https://forums.alliedmods.net/showpost.php?p=2171971&postcount=175
 
+#pragma newdecls required
+
 // Change DISABLE_SOUNDS to true in order to disable the announcer sounds and prevent them from downloading to players
-new bool:DISABLE_SOUNDS = false;
+bool DISABLE_SOUNDS = false;
 
 // ConVar Defines
 #define PLUGIN_VERSION              "0.3.3"
@@ -125,7 +127,7 @@ new bool:DISABLE_SOUNDS = false;
 #define LBHJ_GODLIKE                 "266.0"
 
 // Jump Tier Sound Paths
-new String:g_saJumpSoundPaths[][] = {
+char g_saJumpSoundPaths[][] = {
     "*jumpstats/impressive.mp3",
     "*jumpstats/excellent.mp3",
     "*jumpstats/outstanding.mp3",
@@ -155,7 +157,7 @@ new String:g_saJumpSoundPaths[][] = {
 #define JOINTEAM_T         2
 #define JOINTEAM_CT        3
 
-public Plugin:myinfo =
+public Plugin myinfo =
 {
     name = "Jump Stats",
     author = "ceLoFaN",
@@ -165,114 +167,114 @@ public Plugin:myinfo =
 };
 
 /*\----ConVars----------------------------------------\*/
-new Handle:g_hEnabled = INVALID_HANDLE;
-new Handle:g_hDisplayEnabled = INVALID_HANDLE;
-new Handle:g_hDisplayDelayRoundstart = INVALID_HANDLE;
-new Handle:g_hBunnyHopCancelsAnnouncer = INVALID_HANDLE;
-new Handle:g_hMinimumAnnounceTier = INVALID_HANDLE;
-new Handle:g_hAnnounceToTeams = INVALID_HANDLE;
-new Handle:g_hRecordForTeams = INVALID_HANDLE;
-new Handle:g_hAnnouncerSounds = INVALID_HANDLE;
+ConVar g_hEnabled;
+ConVar g_hDisplayEnabled;
+ConVar g_hDisplayDelayRoundstart;
+ConVar g_hBunnyHopCancelsAnnouncer;
+ConVar g_hMinimumAnnounceTier;
+ConVar g_hAnnounceToTeams;
+ConVar g_hRecordForTeams;
+ConVar g_hAnnouncerSounds;
 
-new Handle:g_hLJImpressive = INVALID_HANDLE;
-new Handle:g_hLJExcellent = INVALID_HANDLE;
-new Handle:g_hLJOutstanding = INVALID_HANDLE;
-new Handle:g_hLJUnreal = INVALID_HANDLE;
-new Handle:g_hLJGodlike = INVALID_HANDLE;
+ConVar g_hLJImpressive;
+ConVar g_hLJExcellent;
+ConVar g_hLJOutstanding;
+ConVar g_hLJUnreal;
+ConVar g_hLJGodlike;
 
-new Handle:g_hBHJImpressive = INVALID_HANDLE;
-new Handle:g_hBHJExcellent = INVALID_HANDLE;
-new Handle:g_hBHJOutstanding = INVALID_HANDLE;
-new Handle:g_hBHJUnreal = INVALID_HANDLE;
-new Handle:g_hBHJGodlike = INVALID_HANDLE;
+ConVar g_hBHJImpressive;
+ConVar g_hBHJExcellent;
+ConVar g_hBHJOutstanding;
+ConVar g_hBHJUnreal;
+ConVar g_hBHJGodlike;
 
-new Handle:g_hMBHJImpressive = INVALID_HANDLE;
-new Handle:g_hMBHJExcellent = INVALID_HANDLE;
-new Handle:g_hMBHJOutstanding = INVALID_HANDLE;
-new Handle:g_hMBHJUnreal = INVALID_HANDLE;
-new Handle:g_hMBHJGodlike = INVALID_HANDLE;
+ConVar g_hMBHJImpressive;
+ConVar g_hMBHJExcellent;
+ConVar g_hMBHJOutstanding;
+ConVar g_hMBHJUnreal;
+ConVar g_hMBHJGodlike;
 
-new Handle:g_hLadJImpressive = INVALID_HANDLE;
-new Handle:g_hLadJExcellent = INVALID_HANDLE;
-new Handle:g_hLadJOutstanding = INVALID_HANDLE;
-new Handle:g_hLadJUnreal = INVALID_HANDLE;
-new Handle:g_hLadJGodlike = INVALID_HANDLE;
+ConVar g_hLadJImpressive;
+ConVar g_hLadJExcellent;
+ConVar g_hLadJOutstanding;
+ConVar g_hLadJUnreal;
+ConVar g_hLadJGodlike;
 
-new Handle:g_hWHJImpressive = INVALID_HANDLE;
-new Handle:g_hWHJExcellent = INVALID_HANDLE;
-new Handle:g_hWHJOutstanding = INVALID_HANDLE;
-new Handle:g_hWHJUnreal = INVALID_HANDLE;
-new Handle:g_hWHJGodlike = INVALID_HANDLE;
+ConVar g_hWHJImpressive;
+ConVar g_hWHJExcellent;
+ConVar g_hWHJOutstanding;
+ConVar g_hWHJUnreal;
+ConVar g_hWHJGodlike;
 
-new Handle:g_hLDHJImpressive = INVALID_HANDLE;
-new Handle:g_hLDHJExcellent = INVALID_HANDLE;
-new Handle:g_hLDHJOutstanding = INVALID_HANDLE;
-new Handle:g_hLDHJUnreal = INVALID_HANDLE;
-new Handle:g_hLDHJGodlike = INVALID_HANDLE;
+ConVar g_hLDHJImpressive;
+ConVar g_hLDHJExcellent;
+ConVar g_hLDHJOutstanding;
+ConVar g_hLDHJUnreal;
+ConVar g_hLDHJGodlike;
 
-new Handle:g_hLBHJImpressive = INVALID_HANDLE;
-new Handle:g_hLBHJExcellent = INVALID_HANDLE;
-new Handle:g_hLBHJOutstanding = INVALID_HANDLE;
-new Handle:g_hLBHJUnreal = INVALID_HANDLE;
-new Handle:g_hLBHJGodlike = INVALID_HANDLE;
+ConVar g_hLBHJImpressive;
+ConVar g_hLBHJExcellent;
+ConVar g_hLBHJOutstanding;
+ConVar g_hLBHJUnreal;
+ConVar g_hLBHJGodlike;
 
-new Handle:g_hImpressiveColor = INVALID_HANDLE;
-new Handle:g_hExcellentColor = INVALID_HANDLE;
-new Handle:g_hOutstandingColor = INVALID_HANDLE;
-new Handle:g_hUnrealColor = INVALID_HANDLE;
-new Handle:g_hGodlikeColor = INVALID_HANDLE;
+ConVar g_hImpressiveColor;
+ConVar g_hExcellentColor;
+ConVar g_hOutstandingColor;
+ConVar g_hUnrealColor;
+ConVar g_hGodlikeColor;
 
-new bool:g_bEnabled;
-new g_iDisplayEnabled;
-new Float:g_fDisplayDelayRoundstart;
-new bool:g_bBunnyHopCancelsAnnouncer;
-new g_iMinimumAnnounceTier;
-new g_iAnnounceToTeams;
-new g_iRecordForTeams;
-new g_iAnnouncerSounds;
+bool g_bEnabled;
+int g_iDisplayEnabled;
+float g_fDisplayDelayRoundstart;
+bool g_bBunnyHopCancelsAnnouncer;
+int g_iMinimumAnnounceTier;
+int g_iAnnounceToTeams;
+int g_iRecordForTeams;
+int g_iAnnouncerSounds;
 
-new Float:g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
-new String:g_saQualityColor[5][32];
+float g_faQualityDistances[VALID_JUMP_TYPES + 1][5];
+char g_saQualityColor[5][32];
 /*-----------------------------------------------------*/
 
 //cookies
-new Handle:g_hToggleStatsCookie = INVALID_HANDLE;
-new Handle:g_hToggleAnnouncerSoundsCookie = INVALID_HANDLE;
+Handle g_hToggleStatsCookie;
+Handle g_hToggleAnnouncerSoundsCookie;
 
 //stats
-new Handle:g_hDisplayTimer = INVALID_HANDLE;
-new Handle:g_hInitialDisplayTimer = INVALID_HANDLE;
-new bool:g_baStats[MAXPLAYERS + 1] = {true, ...};
-new bool:g_baAnnouncerSounds[MAXPLAYERS + 1] = {true, ...};
-new g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
-new g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
-new bool:g_baCanJump[MAXPLAYERS + 1] = {true, ...};
-new bool:g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
-new bool:g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
-new bool:g_baCanDuck[MAXPLAYERS + 1] = {true, ...};
-new bool:g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
-new bool:g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
-new bool:g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
-new Float:g_faJumpCoord[MAXPLAYERS + 1][3];
-new Float:g_faLandCoord[MAXPLAYERS + 1][3];
-new Float:g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
-new Float:g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
-new g_iaBhops[MAXPLAYERS + 1] = {0, ...};
-new g_iaStatus[MAXPLAYERS + 1] = {0, ...};
-new g_iaFrame[MAXPLAYERS + 1] = {0, ...};
-new g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
-new g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
-new g_iaButtons[MAXPLAYERS+1] = {0, ...};
-new g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
-new bool:g_bVote = false;
-new Handle:g_hVoteTimer = INVALID_HANDLE;
-new Float:g_faPre[MAXPLAYERS + 1] = {0.0, ...};
-new Float:g_faPosition[MAXPLAYERS + 1][2][3];
-new g_iaTendency[MAXPLAYERS + 1][2];
-new g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
+Handle g_hDisplayTimer;
+Handle g_hInitialDisplayTimer;
+bool g_baStats[MAXPLAYERS + 1] = {true, ...};
+bool g_baAnnouncerSounds[MAXPLAYERS + 1] = {true, ...};
+int g_iaJumped[MAXPLAYERS + 1] = {JUMP_NONE, ...};
+int g_iaJumpContext[MAXPLAYERS + 1] = {0, ...};
+bool g_baCanJump[MAXPLAYERS + 1] = {true, ...};
+bool g_baJustHopped[MAXPLAYERS + 1] = {false, ...};
+bool g_baCanBhop[MAXPLAYERS + 1] = {false, ...};
+bool g_baCanDuck[MAXPLAYERS + 1] = {true, ...};
+bool g_baAntiJump[MAXPLAYERS + 1] = {true, ...};
+bool g_baOnLadder[MAXPLAYERS + 1] = {false, ...};
+bool g_baAnnounceLastJump[MAXPLAYERS + 1] = {false, ...};
+float g_faJumpCoord[MAXPLAYERS + 1][3];
+float g_faLandCoord[MAXPLAYERS + 1][3];
+float g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
+float g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
+int g_iaBhops[MAXPLAYERS + 1] = {0, ...};
+int g_iaFlag[MAXPLAYERS + 1] = {0, ...};
+int g_iaFrame[MAXPLAYERS + 1] = {0, ...};
+int g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
+int g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
+int g_iaButtons[MAXPLAYERS+1] = {0, ...};
+int g_iaMouseDisplay[MAXPLAYERS + 1] = {0, ...};
+bool g_bVote = false;
+Handle g_hVoteTimer;
+float g_faPre[MAXPLAYERS + 1] = {0.0, ...};
+float g_faPosition[MAXPLAYERS + 1][2][3];
+int g_iaTendency[MAXPLAYERS + 1][2];
+int g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
 
 //Jump consts
-new const String:g_saJumpQualities[][] = {
+char g_saJumpQualities[][] = {
     "Impressive",
     "Excellent",
     "Outstanding",
@@ -280,16 +282,18 @@ new const String:g_saJumpQualities[][] = {
     "Godlike"
 }
 
-new Handle:g_hJumpForward = INVALID_HANDLE;
+Handle g_hJumpForward;
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-   CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
+    CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
 
-   return APLRes_Success;
+    RegPluginLibrary("jumpstats");
+
+    return APLRes_Success;
 }
 
-public OnPluginStart()
+public void OnPluginStart()
 {
     //ConVars here
     CreateConVar("jumpstats_version", PLUGIN_VERSION, "Version of JumpStats", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_NOTIFY);
@@ -425,7 +429,7 @@ public OnPluginStart()
     g_hToggleStatsCookie = RegClientCookie("ToggleStatsCookie", "Me want cookie!", CookieAccess_Private);
     g_hToggleAnnouncerSoundsCookie = RegClientCookie("ToogleAnnouncerSoundsCookie", "Me can't afford it.", CookieAccess_Private);
     
-    for(new iClient = 1; iClient <= MaxClients; iClient++) {
+    for(int iClient = 1; iClient <= MaxClients; iClient++) {
         if(IsClientInGame(iClient) && !IsFakeClient(iClient) && AreClientCookiesCached(iClient)) {
             OnClientCookiesCached(iClient);
         }
@@ -434,13 +438,13 @@ public OnPluginStart()
     g_hJumpForward = CreateGlobalForward("OnJump", ET_Ignore, Param_Cell, Param_Any, Param_Float);
 }
 
-public OnConfigsExecuted()
+public void OnConfigsExecuted()
 {
     g_bEnabled = GetConVarBool(g_hEnabled);
     g_iDisplayEnabled = GetConVarInt(g_hDisplayEnabled);
     g_fDisplayDelayRoundstart = GetConVarFloat(g_hDisplayDelayRoundstart);
     g_bBunnyHopCancelsAnnouncer = GetConVarBool(g_hBunnyHopCancelsAnnouncer);
-    new String:sTier[32]
+    char sTier[32]
     GetConVarString(g_hMinimumAnnounceTier, sTier, sizeof(sTier));
     g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     g_iAnnounceToTeams = GetConVarInt(g_hAnnounceToTeams);
@@ -500,9 +504,9 @@ public OnConfigsExecuted()
     GetConVarString(g_hGodlikeColor, g_saQualityColor[GODLIKE], 32);
 }
 
-public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewValue[])
+public void OnCvarChange(ConVar hConVar, const char[] sOldValue, const char[] sNewValue)
 {
-    decl String:sConVarName[64];
+    char sConVarName[64];
     GetConVarName(hConVar, sConVarName, sizeof(sConVarName));
 
     if(StrEqual("js_enabled", sConVarName))
@@ -514,7 +518,7 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
     if(StrEqual("js_bunnyhop_cancels_announcer", sConVarName))
         g_bBunnyHopCancelsAnnouncer = GetConVarBool(hConVar); else
     if(StrEqual("js_minimum_announce_tier", sConVarName)) {
-        new String:sTier[32]
+        char sTier[32];
         GetConVarString(hConVar, sTier, sizeof(sTier));
         g_iMinimumAnnounceTier = GetQualityIndex(sTier);
     } else
@@ -553,9 +557,9 @@ public OnCvarChange(Handle:hConVar, const String:sOldValue[], const String:sNewV
         GetConVarString(hConVar, g_saQualityColor[GODLIKE], 32);
 }
 
-public OnClientCookiesCached(iClient)
+public void OnClientCookiesCached(int iClient)
 {
-    decl String:sCookieValue[8];
+    char sCookieValue[8];
     
     GetClientCookie(iClient, g_hToggleStatsCookie, sCookieValue, sizeof(sCookieValue));
     g_baStats[iClient] = !StrEqual(sCookieValue, "off");
@@ -564,11 +568,13 @@ public OnClientCookiesCached(iClient)
     g_baAnnouncerSounds[iClient] = !StrEqual(sCookieValue, "off");
 }
 
-public bool:InterruptJump(iClient, const String:sMessage[]) 
+public bool InterruptJump(int iClient, const char[] sMessage) 
 {
     if(iClient < 1 || iClient >= MaxClients)
         return false;
 
+    if(g_iaTendencyFluctuations[iClient])
+        PrintToConsole(iClient, "!INTERRUPT! - Your height fluctuated too much during the jump.", g_iaTendencyFluctuations[iClient]);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baCanBhop[iClient] = false;
     g_iaJumpType[iClient] = JUMP_INVALID;
@@ -582,7 +588,7 @@ public bool:InterruptJump(iClient, const String:sMessage[])
     return true;
 }
 
-public Native_InterruptJump(Handle:hPlugin, iNumParams)
+public int Native_InterruptJump(Handle hPlugin, int iNumParams)
 {
     if(iNumParams != 1) 
         return false;
@@ -595,11 +601,11 @@ public Native_InterruptJump(Handle:hPlugin, iNumParams)
     return InterruptJump(iClient, sInterruptMessage);
 }
 
-public OnMapStart() {
+public void OnMapStart() {
     // Precache sounds
     if(!DISABLE_SOUNDS) {
-        for(new iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
-            new String:sTemp[64];
+        for(int iTier = IMPRESSIVE; iTier <= GODLIKE; iTier++) {
+            char sTemp[64];
             Format(sTemp, sizeof(sTemp), "sound/%s", g_saJumpSoundPaths[iTier][1])
             AddFileToDownloadsTable(sTemp);
             AddToStringTable(FindStringTable("soundprecache"), g_saJumpSoundPaths[iTier]);
@@ -608,43 +614,43 @@ public OnMapStart() {
     g_bVote = false;
 }
 
-public OnMapEnd() {
-    if(g_hDisplayTimer != INVALID_HANDLE) {
+public void OnMapEnd() {
+    if(g_hDisplayTimer != null) {
         KillTimer(g_hDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hDisplayTimer = null;
     }
 
-    if(g_hInitialDisplayTimer != INVALID_HANDLE) {
+    if(g_hInitialDisplayTimer != null) {
         KillTimer(g_hInitialDisplayTimer);
-        g_hInitialDisplayTimer = INVALID_HANDLE;
+        g_hInitialDisplayTimer = null;
     }
 
     if(!g_bEnabled)
         return;
 }
 
-public Action:OnRoundStart(Handle:hEvent, const String:sName[], bool:dontBroadcast)
+public Action OnRoundStart(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
     if(!g_bEnabled)
         return Plugin_Continue;
 
-    if(g_hDisplayTimer != INVALID_HANDLE) {
+    if(g_hDisplayTimer != null) {
         KillTimer(g_hDisplayTimer);
-        g_hDisplayTimer = INVALID_HANDLE;
+        g_hDisplayTimer = null;
     }
-    if(g_hInitialDisplayTimer != INVALID_HANDLE)
+    if(g_hInitialDisplayTimer != null)
         KillTimer(g_hInitialDisplayTimer);
     g_hInitialDisplayTimer = CreateTimer(g_fDisplayDelayRoundstart, ShowDisplay);
 
     return Plugin_Continue;
 }
 
-public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroadcast)
+public Action OnPlayerSpawn(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
     if(!g_bEnabled)
         return Plugin_Continue;
-    new iId = GetEventInt(hEvent, "userid");
-    new iClient = GetClientOfUserId(iId);
+    int iId = GetEventInt(hEvent, "userid");
+    int iClient = GetClientOfUserId(iId);
     g_iaJumped[iClient] = JUMP_NONE;
     g_baOnLadder[iClient] = false;
     GetClientAbsOrigin(iClient, g_faPosition[iClient][LAST]);
@@ -652,30 +658,30 @@ public Action:OnPlayerSpawn(Handle:hEvent, const String:sName[], bool:bDontBroad
     return Plugin_Continue;
 }
 
-public Action:ShowDisplay(Handle:hTimer)
+public Action ShowDisplay(Handle hTimer)
 {
-    g_hInitialDisplayTimer = INVALID_HANDLE;
-    if(g_hDisplayTimer != INVALID_HANDLE)
+    g_hInitialDisplayTimer = null;
+    if(g_hDisplayTimer != null)
         KillTimer(g_hDisplayTimer);
-    for(new iClient = 1; iClient <= MaxClients; iClient++) {
+    for(int iClient = 1; iClient <= MaxClients; iClient++) {
         g_iaButtons[iClient] = 0;
         g_iaMouseDisplay[iClient] = 0;
     }
     g_hDisplayTimer = CreateTimer(REFRESH_RATE, StatsDisplay, _, TIMER_REPEAT);
 }
 
-public Action:StatsDisplay(Handle:hTimer)
+public Action StatsDisplay(Handle hTimer)
 {
     if(g_bEnabled && g_iDisplayEnabled) {
-        for(new iClient = 1; iClient <= MaxClients; iClient++) {
+        for(int iClient = 1; iClient <= MaxClients; iClient++) {
             if(IsClientInGame(iClient) && g_baStats[iClient] && !g_bVote) {
                 if(IsPlayerAlive(iClient)) {
                     if(g_iDisplayEnabled == 3 || g_iDisplayEnabled == 1) {
-                        decl String:sOutput[128];
+                        char sOutput[128];
 
                         Format(sOutput, sizeof(sOutput), "  Speed: %.1f ups (%.1f)\n", GetPlayerSpeed(iClient), g_faPre[iClient]);
 
-                        new iTeam = GetClientTeam(iClient);
+                        int iTeam = GetClientTeam(iClient);
                         if(g_iRecordForTeams == 3 || (g_iRecordForTeams + 1) == iTeam) {
                             if(g_iaJumpType[iClient] != JUMP_VERTICAL) {
                                 if(g_iaJumpType[iClient] > JUMP_TOO_SHORT) {
@@ -701,11 +707,11 @@ public Action:StatsDisplay(Handle:hTimer)
                 }
                 else {
                     if(IsClientObserver(iClient) && (g_iDisplayEnabled >= 2)) {
-                        new iSpecMode = GetEntProp(iClient, Prop_Send, "m_iObserverMode");
+                        int iSpecMode = GetEntProp(iClient, Prop_Send, "m_iObserverMode");
                         if(iSpecMode == SPECMODE_FIRSTPERSON || iSpecMode == SPECMODE_3RDPERSON) {
-                            new iSpectatedClient = GetEntPropEnt(iClient, Prop_Send, "m_hObserverTarget");
+                            int iSpectatedClient = GetEntPropEnt(iClient, Prop_Send, "m_hObserverTarget");
                             if(iSpectatedClient > 1 && iSpectatedClient <= MaxClients) {
-                                decl String:sOutput[256];
+                                char sOutput[256];
                                 if(g_iaButtons[iSpectatedClient] & IN_FORWARD)
                                     Format(sOutput, sizeof(sOutput), "               [ W ]");
                                 else
@@ -757,14 +763,14 @@ public Action:StatsDisplay(Handle:hTimer)
             }
         }
     }
-    for(new iClient = 1; iClient <= MaxClients; iClient++) {
+    for(int iClient = 1; iClient <= MaxClients; iClient++) {
         g_iaButtons[iClient] = 0;
         g_iaMouseDisplay[iClient] = 0;
     }
     return Plugin_Continue;
 }
 
-public Action:Command_ToggleStats(iClient, iArgs)
+public Action Command_ToggleStats(int iClient, int iArgs)
 {
     if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baStats[iClient] = !g_baStats[iClient];
@@ -778,7 +784,7 @@ public Action:Command_ToggleStats(iClient, iArgs)
     return Plugin_Handled;
 }
 
-public Action:Command_ToggleSoundAnnouncer(iClient, iArgs)
+public Action Command_ToggleSoundAnnouncer(int iClient, int iArgs)
 {
     if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baAnnouncerSounds[iClient] = !g_baAnnouncerSounds[iClient];
@@ -792,7 +798,7 @@ public Action:Command_ToggleSoundAnnouncer(iClient, iArgs)
     return Plugin_Handled;
 }
 
-public SDKHook_StartTouch_Callback(iClient, iTouched)
+public Action SDKHook_StartTouch_Callback(int iClient, int iTouched)
 {
     if(g_bEnabled && iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         if(IsPlayerAlive(iClient)) {
@@ -807,7 +813,7 @@ public SDKHook_StartTouch_Callback(iClient, iTouched)
     }
 }
 
-public OnClientDisconnect(iClient)
+public void OnClientDisconnect(int iClient)
 {
     SDKUnhook(iClient, SDKHook_StartTouch, SDKHook_StartTouch_Callback);
     g_iaButtons[iClient] = 0;
@@ -820,13 +826,13 @@ public OnClientDisconnect(iClient)
     g_faPre[iClient] = 0.0;
 }
 
-public OnClientPutInServer(iClient)
+public void OnClientPutInServer(int iClient)
 {
     SDKHook(iClient, SDKHook_StartTouch, SDKHook_StartTouch_Callback);
     OnClientCookiesCached(iClient);
 }
 
-public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:iDamage, &iDamageType)
+public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &iDamage, int &iDamageType)
 {
     if(!g_bEnabled)
         return Plugin_Continue;
@@ -839,7 +845,7 @@ public Action:OnTakeDamage(iVictim, &iAttacker, &iInflictor, &Float:iDamage, &iD
     return Plugin_Continue;
 }
 
-public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroadcast)
+public Action OnPlayerDeath(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
     if(!g_bEnabled)
         return Plugin_Continue;
@@ -849,55 +855,31 @@ public Action:OnPlayerDeath(Handle:hEvent, const String:sName[], bool:bDontBroad
     return Plugin_Continue;
 }
 
-public GetQualityIndex(String:sQuality[])
+public int GetQualityIndex(const char[] sQuality)
 {
-    new iIndex;
+    int iIndex;
     for(iIndex = 0; strcmp(sQuality, g_saJumpQualities[iIndex], false); iIndex++) {}
     return iIndex;
 }
 
-public AnnounceLastJump(iClient)
+public void AnnounceLastJump(int iClient)
 {
     if(!g_baStats[iClient])
         return;
 
     if(g_iaJumpType[iClient] > JUMP_NONE) {
-        new iType = g_iaJumpType[iClient];
+        int iType = g_iaJumpType[iClient];
 
-        new JumpType:type;
+        JumpType type;
         switch(iType) {
-            case JUMP_LJ:
-            {
-                type = Jump_LJ;
-            }
-            case JUMP_BHJ:
-            {
-                type = Jump_BHJ;
-            }
-            case JUMP_MBHJ:
-            {
-                type = Jump_MBHJ;
-            }
-            case JUMP_LADJ:
-            {
-                type = Jump_LadJ;
-            }
-            case JUMP_WHJ:
-            {
-                type = Jump_WHJ;
-            }
-            case JUMP_LDHJ:
-            {
-                type = Jump_LDHJ;
-            }
-            case JUMP_LBHJ:
-            {
-                type = Jump_LBHJ;
-            }
-            default:
-            {
-                type = Jump_None;
-            }
+            case JUMP_LJ: type = Jump_LJ;
+            case JUMP_BHJ: type = Jump_BHJ;
+            case JUMP_MBHJ: type = Jump_MBHJ;
+            case JUMP_LADJ: type = Jump_LadJ;
+            case JUMP_WHJ: type = Jump_WHJ;
+            case JUMP_LDHJ: type = Jump_LDHJ;
+            case JUMP_LBHJ: type = Jump_LBHJ;
+            default: type = Jump_None;
         }
         Call_StartForward(g_hJumpForward);
         Call_PushCell(iClient);
@@ -905,26 +887,26 @@ public AnnounceLastJump(iClient)
         Call_PushFloat(g_faDistance[iClient]);
         Call_Finish();
         
-        new iQuality;
+        int iQuality;
         for(iQuality = -1; iQuality < sizeof(g_saJumpQualities) - 1; iQuality++) {
             if(g_faDistance[iClient] < g_faQualityDistances[iType][iQuality + 1])
                 break;
         }
 
         if(iQuality > -1 && iQuality >= g_iMinimumAnnounceTier) {
-            decl String:sNickname[MAX_NAME_LENGTH];
+            char sNickname[MAX_NAME_LENGTH];
             GetClientName(iClient, sNickname, sizeof(sNickname));
 
-            decl String:sArticle[3];
+            char sArticle[3];
             if(FindCharInString("AEIOUaeiou", g_saJumpQualities[iQuality][0]) != -1)
                 Format(sArticle, sizeof(sArticle), "an");
             else
                 Format(sArticle, sizeof(sArticle), "a");
 
             if(g_iAnnounceToTeams) 
-                for(new iId = 1; iId < MaxClients; iId++) {
+                for(int iId = 1; iId < MaxClients; iId++) {
                     if(IsClientInGame(iId) && g_baStats[iId]) {
-                        new iTeam = GetClientTeam(iId);
+                        int iTeam = GetClientTeam(iId);
                         if(g_iAnnounceToTeams == 4 || 
                            (iTeam > JOINTEAM_SPEC && (iTeam - 1 == g_iAnnounceToTeams || g_iAnnounceToTeams == 3))) {
                             // Announce in chat
@@ -943,7 +925,7 @@ public AnnounceLastJump(iClient)
     }
 }
 
-public Action:StopBhopRecord(Handle:hTimer, any:iClient)
+public Action StopBhopRecord(Handle hTimer, any iClient)
 {
     if(iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) {
         g_baCanBhop[iClient] = false;
@@ -951,17 +933,17 @@ public Action:StopBhopRecord(Handle:hTimer, any:iClient)
     }
 }
 
-public Action:AnnounceLastJumpDelayed(Handle:hTimer, any:iClient)
+public Action AnnounceLastJumpDelayed(Handle hTimer, any iClient)
 {
     if(g_baAnnounceLastJump[iClient])
         AnnounceLastJump(iClient);
 }
 
-public RecordJump(iClient)
+public void RecordJump(int iClient)
 {
     GetClientAbsOrigin(iClient, g_faLandCoord[iClient]);
-    new Float:fDelta;
-    new iTeam = GetClientTeam(iClient);
+    float fDelta;
+    int iTeam = GetClientTeam(iClient);
 
     if((g_faLandCoord[iClient][2] >= 0.0 && g_faJumpCoord[iClient][2] >= 0.0) || 
     (g_faLandCoord[iClient][2] <= 0.0 && g_faJumpCoord[iClient][2] <= 0.0))
@@ -1017,7 +999,7 @@ public RecordJump(iClient)
     }
 }
 
-public GetPreJumpType(iClient)
+public void GetPreJumpType(int iClient)
 {
     if(g_iaBhops[iClient] == 1) {
         if(g_iaJumpContext[iClient] == LADDER_DROPPED) {
@@ -1040,7 +1022,7 @@ public GetPreJumpType(iClient)
         g_iaJumped[iClient] = JUMP_MBHJ;
 }
 
-public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3], Float:faAngles[3], &iWeapon) //OnRunCmd
+public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float faVelocity[3], float faAngles[3], int &iWeapon, int &iSubType, int &iCmdNum, int &iTickCount, int &iSeed, int iMouse[2]) //OnRunCmd
 {
     if(!g_bEnabled)
         return Plugin_Continue;
@@ -1050,7 +1032,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     g_iaButtons[iClient] |= iButtons;
     
     // Record X-axis mouse movement for displaying
-    static Float:s_fLastXAngle[MAXPLAYERS + 1]
+    static float s_fLastXAngle[MAXPLAYERS + 1];
 
     // Record current player position 
     GetClientAbsOrigin(iClient, g_faPosition[iClient][CURRENT]);
@@ -1105,7 +1087,7 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
         if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
             InterruptJump(iClient, "[JS] Your jump was interrupted because you are not in-air or walking.");
         // Interrupt the jump recording if the player is not constantly descending or ascending
-        new Float:fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
+        float fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
         if(fHeightDifference < 0.0)
             g_iaTendency[iClient][CURRENT] = DESCENDING;
         else if(fHeightDifference > 0.0)
@@ -1246,48 +1228,49 @@ public Action:OnPlayerRunCmd(iClient, &iButtons, &iImpulse, Float:faVelocity[3],
     return Plugin_Continue;
 }
 
-public Action:OnRoundEnd(Handle:hEvent, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
+	// ? BUG ?
     if(!g_bEnabled)
         return Plugin_Continue;
     return Plugin_Continue;
 }
 
-stock Float:GetPlayerSpeed(iClient)
+stock float GetPlayerSpeed(int iClient)
 {
-    new Float:faVelocity[3];
+    float faVelocity[3];
     GetEntPropVector(iClient, Prop_Data, "m_vecVelocity", faVelocity);
 
-    new Float:fSpeed;
+    float fSpeed;
     fSpeed = SquareRoot(faVelocity[0] * faVelocity[0] + faVelocity[1] * faVelocity[1]);
     fSpeed *= GetEntPropFloat(iClient, Prop_Data, "m_flLaggedMovementValue");
 
     return fSpeed;
 }
 
-stock CopyVector(Float:faOrigin[3], Float:faTarget[3])
+stock void CopyVector(float faOrigin[3], float faTarget[3])
 {
-    for(new i = 0; i < 3; i++)
+    for(int i = 0; i < 3; i++)
         faTarget[i] = faOrigin[i];
 }
 
-public OnMapVoteStarted()
+public void OnMapVoteStarted()
 {
     g_bVote = true;
-    if(g_hVoteTimer != INVALID_HANDLE) {
+    if(g_hVoteTimer != null) {
         KillTimer(g_hVoteTimer);
-        g_hVoteTimer = INVALID_HANDLE;
+        g_hVoteTimer = null;
     }
     g_hVoteTimer = CreateTimer(0.1, CheckVoteEnd, _, TIMER_REPEAT);
 }
 
-public Action:CheckVoteEnd(Handle:hTimer)
+public Action CheckVoteEnd(Handle hTimer)
 {
     if(HasEndOfMapVoteFinished()) {
         g_bVote = false;
-        if(g_hVoteTimer != INVALID_HANDLE) {
+        if(g_hVoteTimer != null) {
             KillTimer(g_hVoteTimer);
-            g_hVoteTimer = INVALID_HANDLE;
+            g_hVoteTimer = null;
         }
     }
 }
