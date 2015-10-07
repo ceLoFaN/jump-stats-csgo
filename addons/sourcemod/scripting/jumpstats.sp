@@ -260,7 +260,7 @@ float g_faLandCoord[MAXPLAYERS + 1][3];
 float g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
 float g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
 int g_iaBhops[MAXPLAYERS + 1] = {0, ...};
-int g_iaFlag[MAXPLAYERS + 1] = {0, ...};
+int g_iaStatus[MAXPLAYERS + 1] = {0, ...};
 int g_iaFrame[MAXPLAYERS + 1] = {0, ...};
 int g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
 int g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
@@ -593,10 +593,10 @@ public int Native_InterruptJump(Handle hPlugin, int iNumParams)
     if(iNumParams != 1) 
         return false;
 
-    new iClient = GetNativeCell(1);
-    new String:sPluginName[64];
+    int iClient = GetNativeCell(1);
+    char sPluginName[64];
     GetPluginFilename(hPlugin, sPluginName, sizeof(sPluginName));
-    new String:sInterruptMessage[100];
+    char sInterruptMessage[100];
     Format(sInterruptMessage, sizeof(sInterruptMessage), "[JS] Your jump was interrupted by a plugin called %s.", sPluginName)
     return InterruptJump(iClient, sInterruptMessage);
 }
