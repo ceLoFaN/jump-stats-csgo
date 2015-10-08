@@ -150,6 +150,10 @@ char g_saJumpSoundPaths[][] = {
 #define SPECMODE_FREELOOK           6
 #define MOUSE_LEFT                  (1 << 0)
 #define MOUSE_RIGHT                 (1 << 1)
+#if defined FL_INWATER
+    #undef FL_INWATER
+#endif
+#define FL_INWATER                  (1 << 10)
 
 // In-game Team Defines
 #define JOINTEAM_RND       0
@@ -914,7 +918,7 @@ public void AnnounceLastJump(int iClient)
                                 g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
                             if(g_iAnnouncerSounds == 1 && g_baAnnouncerSounds[iId]) {
-						        if(iClient == iId || iQuality == 4)
+                                if(iClient == iId || iQuality == 4)
                                     EmitSoundToClient(iId, g_saJumpSoundPaths[iQuality]);
                             }
                         }
@@ -1086,6 +1090,8 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fa
         // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
         if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
             InterruptJump(iClient, "[JS] Your jump was interrupted because you are not in-air or walking.");
+        if(InWater(iClient))
+            InterruptJump(iClient, "[JS] Your jump was interrupted because you are in water.");
         // Interrupt the jump recording if the player is not constantly descending or ascending
         float fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
         if(fHeightDifference < 0.0)
@@ -1230,7 +1236,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fa
 
 public Action OnRoundEnd(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
-	// ? BUG ?
+    // ? BUG ?
     if(!g_bEnabled)
         return Plugin_Continue;
     return Plugin_Continue;
@@ -1273,4 +1279,9 @@ public Action CheckVoteEnd(Handle hTimer)
             g_hVoteTimer = null;
         }
     }
+}
+
+bool InWater(int iEntity)
+{
+    return ( GetEntProp(iEntity, Prop_Send, "m_fFlags") & FL_INWATER ) != 0;
 }
