@@ -276,6 +276,7 @@ float g_faPre[MAXPLAYERS + 1] = {0.0, ...};
 float g_faPosition[MAXPLAYERS + 1][2][3];
 int g_iaTendency[MAXPLAYERS + 1][2];
 int g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
+bool g_baTracked[MAXPLAYERS + 1] = {true, ...};
 
 //Jump consts
 char g_saJumpQualities[][] = {
@@ -291,6 +292,9 @@ Handle g_hJumpForward;
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
     CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
+    CreateNative("Jumpstats_ClientUntrack", Native_ClientUntrack);
+    CreateNative("Jumpstats_ClientTrack", Native_ClientTrack);
+    CreateNative("Jumpstats_ClientIsTracked", Native_ClientIsTracked);
 
     RegPluginLibrary("jumpstats");
 
@@ -603,6 +607,29 @@ public int Native_InterruptJump(Handle hPlugin, int iNumParams)
     char sInterruptMessage[100];
     Format(sInterruptMessage, sizeof(sInterruptMessage), "[JS] Your jump was interrupted by a plugin called %s.", sPluginName)
     return InterruptJump(iClient, sInterruptMessage);
+}
+
+public int Native_ClientUntrack(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	g_baTracked[iClient] = false;
+	
+	InterruptJump(iClient, "[JS] Your jump was interrupted because you are no longer tracked.");
+}
+
+public int Native_ClientTrack(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	g_baTracked[iClient] = true;
+}
+
+public int Native_ClientIsTracked(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	return g_baTracked[iClient];
 }
 
 public void OnMapStart() {
@@ -1028,7 +1055,7 @@ public void GetPreJumpType(int iClient)
 
 public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float faVelocity[3], float faAngles[3], int &iWeapon, int &iSubType, int &iCmdNum, int &iTickCount, int &iSeed, int iMouse[2]) //OnRunCmd
 {
-    if(!g_bEnabled)
+    if(!g_bEnabled || !g_baTracked[iClient])
         return Plugin_Continue;
     
     // STATS START HERE

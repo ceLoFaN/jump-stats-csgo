@@ -51,6 +51,30 @@ stock const char g_saPrettyJumpTypes[][] = {
 native bool JumpStats_InterruptJump(int client);
 
 /**
+ * Off tracking of client.
+ *
+ * @param client    Client index.
+ * @noreturn
+ */
+native void Jumpstats_ClientUntrack(int client);
+
+/**
+ * On tracking of client.
+ *
+ * @param client    Client index.
+ * @noreturn
+ */
+native void Jumpstats_ClientTrack(int client);
+
+/**
+ * Returns if a certain player has tracked.
+ *
+ * @param client    Client index.
+ * @return          True if player has tracked, false otherwise.
+ */
+native bool Jumpstats_ClientIsTracked(int client);
+
+/**
  * Called when player do a jump.
  */
 forward void OnJump(int client, JumpType type, float distance);
@@ -66,7 +90,12 @@ public SharedPlugin:__pl_jumpstats =
 #endif
 };
 
+#if !defined REQUIRE_PLUGIN
 public __pl_jumpstats_SetNTVOptional()
 {
 	MarkNativeAsOptional("JumpStats_InterruptJump");
+	MarkNativeAsOptional("Jumpstats_ClientUntrack");
+	MarkNativeAsOptional("Jumpstats_ClientTrack");
+	MarkNativeAsOptional("Jumpstats_ClientIsTracked");
 }
+#endif
