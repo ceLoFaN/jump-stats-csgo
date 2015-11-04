@@ -150,6 +150,10 @@ char g_saJumpSoundPaths[][] = {
 #define SPECMODE_FREELOOK           6
 #define MOUSE_LEFT                  (1 << 0)
 #define MOUSE_RIGHT                 (1 << 1)
+#if defined FL_INWATER
+    #undef FL_INWATER
+#endif
+#define FL_INWATER                  (1 << 10)
 
 // In-game Team Defines
 #define JOINTEAM_RND       0
@@ -260,7 +264,7 @@ float g_faLandCoord[MAXPLAYERS + 1][3];
 float g_faDistance[MAXPLAYERS + 1] = {0.0, ...};
 float g_faLastDistance[MAXPLAYERS + 1] = {0.0, ...};
 int g_iaBhops[MAXPLAYERS + 1] = {0, ...};
-int g_iaFlag[MAXPLAYERS + 1] = {0, ...};
+int g_iaStatus[MAXPLAYERS + 1] = {0, ...};
 int g_iaFrame[MAXPLAYERS + 1] = {0, ...};
 int g_iaJumpType[MAXPLAYERS + 1] = {0, ...};
 int g_iaLastJumpType[MAXPLAYERS + 1] = {0, ...};
@@ -272,6 +276,7 @@ float g_faPre[MAXPLAYERS + 1] = {0.0, ...};
 float g_faPosition[MAXPLAYERS + 1][2][3];
 int g_iaTendency[MAXPLAYERS + 1][2];
 int g_iaTendencyFluctuations[MAXPLAYERS + 1] = {0, ...};
+bool g_baTracked[MAXPLAYERS + 1] = {true, ...};
 
 //Jump consts
 char g_saJumpQualities[][] = {
@@ -287,6 +292,9 @@ Handle g_hJumpForward;
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
     CreateNative("JumpStats_InterruptJump", Native_InterruptJump);
+    CreateNative("Jumpstats_ClientUntrack", Native_ClientUntrack);
+    CreateNative("Jumpstats_ClientTrack", Native_ClientTrack);
+    CreateNative("Jumpstats_ClientIsTracked", Native_ClientIsTracked);
 
     RegPluginLibrary("jumpstats");
 
@@ -593,12 +601,35 @@ public int Native_InterruptJump(Handle hPlugin, int iNumParams)
     if(iNumParams != 1) 
         return false;
 
-    new iClient = GetNativeCell(1);
-    new String:sPluginName[64];
+    int iClient = GetNativeCell(1);
+    char sPluginName[64];
     GetPluginFilename(hPlugin, sPluginName, sizeof(sPluginName));
-    new String:sInterruptMessage[100];
+    char sInterruptMessage[100];
     Format(sInterruptMessage, sizeof(sInterruptMessage), "[JS] Your jump was interrupted by a plugin called %s.", sPluginName)
     return InterruptJump(iClient, sInterruptMessage);
+}
+
+public int Native_ClientUntrack(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	g_baTracked[iClient] = false;
+	
+	InterruptJump(iClient, "[JS] Your jump was interrupted because you are no longer tracked.");
+}
+
+public int Native_ClientTrack(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	g_baTracked[iClient] = true;
+}
+
+public int Native_ClientIsTracked(Handle plugin, int numParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	return g_baTracked[iClient];
 }
 
 public void OnMapStart() {
@@ -914,7 +945,7 @@ public void AnnounceLastJump(int iClient)
                                 g_saQualityColor[iQuality], sNickname, sArticle, g_saJumpQualities[iQuality], g_faDistance[iClient], g_saPrettyJumpTypes[iType]);
                             // Announce by sound
                             if(g_iAnnouncerSounds == 1 && g_baAnnouncerSounds[iId]) {
-						        if(iClient == iId || iQuality == 4)
+                                if(iClient == iId || iQuality == 4)
                                     EmitSoundToClient(iId, g_saJumpSoundPaths[iQuality]);
                             }
                         }
@@ -1024,7 +1055,7 @@ public void GetPreJumpType(int iClient)
 
 public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float faVelocity[3], float faAngles[3], int &iWeapon, int &iSubType, int &iCmdNum, int &iTickCount, int &iSeed, int iMouse[2]) //OnRunCmd
 {
-    if(!g_bEnabled)
+    if(!g_bEnabled || !g_baTracked[iClient])
         return Plugin_Continue;
     
     // STATS START HERE
@@ -1086,6 +1117,8 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fa
         // Interrupt the jump recording if the player movement type changes (ladder, swimming for example)
         if(GetEntityMoveType(iClient) != MOVETYPE_WALK)
             InterruptJump(iClient, "[JS] Your jump was interrupted because you are not in-air or walking.");
+        if(InWater(iClient))
+            InterruptJump(iClient, "[JS] Your jump was interrupted because you are in water.");
         // Interrupt the jump recording if the player is not constantly descending or ascending
         float fHeightDifference = g_faPosition[iClient][CURRENT][2] - g_faPosition[iClient][LAST][2];
         if(fHeightDifference < 0.0)
@@ -1230,7 +1263,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fa
 
 public Action OnRoundEnd(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
-	// ? BUG ?
+    // ? BUG ?
     if(!g_bEnabled)
         return Plugin_Continue;
     return Plugin_Continue;
@@ -1273,4 +1306,9 @@ public Action CheckVoteEnd(Handle hTimer)
             g_hVoteTimer = null;
         }
     }
+}
+
+bool InWater(int iEntity)
+{
+    return ( GetEntProp(iEntity, Prop_Send, "m_fFlags") & FL_INWATER ) != 0;
 }
